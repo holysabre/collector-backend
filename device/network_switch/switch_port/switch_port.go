@@ -2,6 +2,7 @@ package switch_port
 
 import (
 	"collector-agent/device"
+	"collector-agent/util"
 	"log"
 	"strconv"
 
@@ -21,18 +22,18 @@ const (
 )
 
 type SwitchPort struct {
-	ID        uint64       `json:"id"`
-	PortIndex uint64       `json:"port_index"`
-	Oids      []string     `json:"-"`
-	Pdus      []device.Pdu `json:"-"`
+	ID        uint64            `json:"id"`
+	PortIndex uint64            `json:"port_index"`
+	Oids      map[string]string `json:"-"`
+	Pdus      []device.Pdu      `json:"-"`
 	// Time       time.Time             `json:"-"`
 	Connection device.SNMPConnection `json:"-"`
 }
 
-func (sp *SwitchPort) SetOids(original_oids []string) {
-	oids := []string{}
-	for _, oid := range original_oids {
-		oids = append(oids, oid+"."+strconv.Itoa(int(sp.PortIndex)))
+func (sp *SwitchPort) SetOids(original_oids map[string]string) {
+	oids := map[string]string{}
+	for key, oid := range original_oids {
+		oids[key] = oid + "." + strconv.Itoa(int(sp.PortIndex))
 	}
 	sp.Oids = oids
 }
@@ -50,7 +51,13 @@ func (sp *SwitchPort) GetByOids() {
 	}
 	defer g.Default.Conn.Close()
 
-	result, err2 := g.Default.Get(sp.Oids) // Get() accepts up to g.MAX_OIDS
+	oids := []string{}
+	for _, oid := range sp.Oids {
+		oids = append(oids, oid)
+	}
+	reverted_oids := util.ReverseMap(sp.Oids)
+
+	result, err2 := g.Default.Get(oids) // Get() accepts up to g.MAX_OIDS
 	if err2 != nil {
 		log.Fatalf("Get() err: %v", err2)
 	}
@@ -59,7 +66,8 @@ func (sp *SwitchPort) GetByOids() {
 
 	for _, variable := range result.Variables {
 		oid, value := device.GetSNMPValue(variable, true)
-		pdus = append(pdus, device.Pdu{Oid: oid, Value: value})
+		key := device.GetKeyFromOid(oid, reverted_oids)
+		pdus = append(pdus, device.Pdu{Oid: oid, Value: value, Key: key})
 	}
 	sp.Pdus = pdus
 }

@@ -20,7 +20,7 @@ func Test(t *testing.T) {
 		port.Connection = network_switch.Connection
 		port.SetOids(network_switch.PortOids)
 		port.GetByOids()
-		fmt.Println(port.Pdus)
+		fmt.Println(port)
 	}
 
 	for _, oid := range network_switch.Oids {

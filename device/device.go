@@ -15,6 +15,7 @@ type SNMPConnection struct {
 
 type Pdu struct {
 	Oid   string
+	Key   string
 	Value interface{}
 }
 
@@ -51,4 +52,8 @@ func GetSNMPValue(variable g.SnmpPDU, is_port bool) (oid string, value interface
 		value = g.ToBigInt(variable.Value)
 	}
 	return
+}
+
+func GetKeyFromOid(oid string, reverted_oids map[string]string) string {
+	return reverted_oids[oid]
 }

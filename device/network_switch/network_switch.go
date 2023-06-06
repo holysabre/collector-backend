@@ -15,31 +15,38 @@ import (
 type NetworkSwitch struct {
 	ID         uint64                   `json:"id"`
 	Connection device.SNMPConnection    `json:"connection"`
-	Oids       []string                 `json:"oids"`
+	Oids       map[string]string        `json:"oids"`
 	Ports      []switch_port.SwitchPort `json:"ports"`
-	PortOids   []string                 `json:"port_oids"`
+	PortOids   map[string]string        `json:"port_oids"`
 	Pdus       []device.Pdu             `json:"-"`
 	Time       time.Time                `json:"-"`
 }
 
-func Collect(body []byte) {
-	fmt.Println(string(body))
-	var network_switch NetworkSwitch
-	err := json.Unmarshal(body, &network_switch)
+func Collect(body []byte) (ns NetworkSwitch) {
+	// fmt.Println(string(body))
+	err := json.Unmarshal(body, &ns)
 	if err != nil {
 		fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
 		return
 	}
-	fmt.Println(network_switch)
 
-	//port
-	// for _, port := range network_switch.Ports {
-	// 	port.Connection = network_switch.Connection
-	// 	port.SetOids(network_switch.PortOids)
-	// 	port.GetByOids()
-	// 	fmt.Println(port)
-	// 	return
-	// }
+	for _, oid := range ns.Oids {
+		if oid == "" {
+			continue
+		}
+		ns.WalkAllByOid(oid)
+	}
+
+	// port
+	for _, port := range ns.Ports {
+		port.Connection = ns.Connection
+		port.SetOids(ns.PortOids)
+		port.GetByOids()
+	}
+
+	fmt.Println(ns)
+
+	return
 }
 
 func (ns *NetworkSwitch) WalkAllByOid(oid string) {

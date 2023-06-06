@@ -2,10 +2,12 @@ package lib
 
 import (
 	"collector-agent/device/network_switch"
+	"collector-agent/util"
 	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/streadway/amqp"
 )
@@ -18,27 +20,42 @@ type Msg struct {
 	Type     string `json:"type"`
 	Time     int64  `json:"time"`
 	TryTimes int8   `json:"try_times"`
+	Data     string `json:"data"`
 }
 
 type Collector struct {
-	MainCh  *amqp.Channel
-	MainQ   amqp.Queue
-	RetryCh *amqp.Channel
-	RetryQ  amqp.Queue
+	MainCh   *amqp.Channel
+	MainQ    amqp.Queue
+	RetryCh  *amqp.Channel
+	RetryQ   amqp.Queue
+	ReturnCh *amqp.Channel
+	ReturnQ  amqp.Queue
 }
 
-func (c *Collector) Init(conn *amqp.Connection) (*amqp.Channel, *amqp.Channel) {
-	c.MainCh, c.MainQ = c.getChAndQ("collector-main", conn)
-
-	c.RetryCh, c.RetryQ = c.getChAndQ("collector-retry", conn)
-	return c.MainCh, c.RetryCh
+func (c *Collector) Init(conn *amqp.Connection) (*amqp.Channel, *amqp.Channel, *amqp.Channel) {
+	c.MainCh, c.MainQ = c.GetChAndQ("collector-main", conn)
+	c.RetryCh, c.RetryQ = c.GetChAndQ("collector-retry", conn)
+	c.ReturnCh, c.ReturnQ = c.GetChAndQ("collector-return", conn)
+	return c.MainCh, c.RetryCh, c.ReturnCh
 }
 
-func handleCollect(msg Msg, body []byte) {
+func (c *Collector) InitReturn(conn *amqp.Connection) *amqp.Channel {
+	c.ReturnCh, c.ReturnQ = c.GetChAndQ("collector-return", conn)
+	return c.ReturnCh
+}
+
+func (c *Collector) handleCollect(msg Msg) {
 	log.Println("Type: ", msg.Type)
+	body := []byte(msg.Data)
 	switch msg.Type {
 	case "switch":
-		network_switch.Collect(body)
+		ns := network_switch.Collect(body)
+		jsonData, err := json.Marshal(ns)
+		if err != nil {
+			fmt.Printf("无法编码为JSON格式: %v", err)
+		}
+		msg := Msg{Type: "switch", Time: time.Now().Unix(), Data: string(jsonData)}
+		publishMsg(c.ReturnCh, c.ReturnQ, msg)
 	}
 }
 
@@ -65,10 +82,10 @@ func publishMsg(ch *amqp.Channel, q amqp.Queue, msg Msg) {
 	fmt.Println("消息已发送到队列！")
 }
 
-func (c *Collector) getChAndQ(name string, conn *amqp.Connection) (*amqp.Channel, amqp.Queue) {
+func (c *Collector) GetChAndQ(name string, conn *amqp.Connection) (*amqp.Channel, amqp.Queue) {
 	// 创建一个通道
 	ch, err := conn.Channel()
-	FailOnError(err, "Failed to open a channel")
+	util.FailOnError(err, "Failed to open a channel")
 
 	// 声明一个主队列
 	q, err := ch.QueueDeclare(
@@ -79,7 +96,7 @@ func (c *Collector) getChAndQ(name string, conn *amqp.Connection) (*amqp.Channel
 		false, // 是否阻塞等待
 		nil,   // 额外的属性
 	)
-	FailOnError(err, "Failed to declare a queue")
+	util.FailOnError(err, "Failed to declare a queue")
 
 	log.Printf("%s channel & queue declared", name)
 
@@ -97,7 +114,7 @@ func (c *Collector) ListenQ(ch *amqp.Channel, q amqp.Queue) {
 		false,  // 额外的属性
 		nil,    // 消费者取消回调函数
 	)
-	FailOnError(err, "Failed to register a consumer")
+	util.FailOnError(err, "Failed to register a consumer")
 
 	var wg sync.WaitGroup
 
@@ -129,7 +146,7 @@ func (c *Collector) ListenQ(ch *amqp.Channel, q amqp.Queue) {
 				publishMsg(c.RetryCh, c.RetryQ, msg)
 				return
 			}
-			handleCollect(msg, d.Body)
+			c.handleCollect(msg)
 			wg.Done()
 		}(d, &wg)
 	}

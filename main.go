@@ -2,6 +2,7 @@ package main
 
 import (
 	"collector-agent/lib"
+	"collector-agent/util"
 	"log"
 
 	"github.com/streadway/amqp"
@@ -14,14 +15,15 @@ func main() {
 func run() {
 	// 连接到RabbitMQ服务器
 	conn, err := amqp.Dial("amqp://root:password@192.168.88.112:5672/")
-	lib.FailOnError(err, "Failed to connect to RabbitMQ")
+	util.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
 	var collector lib.Collector
 
-	mainCh, retryCh := collector.Init(conn)
+	mainCh, retryCh, returnCh := collector.Init(conn)
 	defer mainCh.Close()
 	defer retryCh.Close()
+	defer returnCh.Close()
 
 	// 处理接收到的消息
 	forever := make(chan bool)
