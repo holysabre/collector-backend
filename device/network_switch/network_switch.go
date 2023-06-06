@@ -22,12 +22,13 @@ type NetworkSwitch struct {
 	Time       time.Time                `json:"-"`
 }
 
-func Collect(body []byte) (ns NetworkSwitch) {
+func Collect(body []byte) NetworkSwitch {
 	// fmt.Println(string(body))
+	var ns NetworkSwitch
 	err := json.Unmarshal(body, &ns)
 	if err != nil {
 		fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
-		return
+		return ns
 	}
 
 	for _, oid := range ns.Oids {
@@ -38,15 +39,14 @@ func Collect(body []byte) (ns NetworkSwitch) {
 	}
 
 	// port
-	for _, port := range ns.Ports {
+	for index, port := range ns.Ports {
 		port.Connection = ns.Connection
 		port.SetOids(ns.PortOids)
 		port.GetByOids()
+		ns.Ports[index] = port
 	}
 
-	fmt.Println(ns)
-
-	return
+	return ns
 }
 
 func (ns *NetworkSwitch) WalkAllByOid(oid string) {

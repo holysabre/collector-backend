@@ -14,9 +14,9 @@ type SNMPConnection struct {
 }
 
 type Pdu struct {
-	Oid   string
-	Key   string
-	Value interface{}
+	Oid   string      `json:"oid"`
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
 }
 
 func GetSNMPVersion(v string) (version g.SnmpVersion) {
