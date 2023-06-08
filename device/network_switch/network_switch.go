@@ -3,6 +3,7 @@ package network_switch
 import (
 	"collector-agent/device"
 	"collector-agent/device/network_switch/switch_port"
+	"collector-agent/util"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -18,8 +19,8 @@ type NetworkSwitch struct {
 	Oids       map[string]string        `json:"oids"`
 	Ports      []switch_port.SwitchPort `json:"ports"`
 	PortOids   map[string]string        `json:"port_oids"`
-	Pdus       []device.Pdu             `json:"-"`
-	Time       time.Time                `json:"-"`
+	Pdus       []device.Pdu             `json:"pdus"`
+	Time       time.Time                `json:"time"`
 }
 
 func Collect(body []byte) NetworkSwitch {
@@ -46,6 +47,8 @@ func Collect(body []byte) NetworkSwitch {
 		ns.Ports[index] = port
 	}
 
+	ns.Time = time.Now()
+
 	return ns
 }
 
@@ -69,7 +72,8 @@ func (ns *NetworkSwitch) WalkAllByOid(oid string) {
 		oid, value := device.GetSNMPValue(variable, true)
 		val := value.(*big.Int)
 		if val.Uint64() > 0 && val.Uint64() < 65535 {
-			pdu := device.Pdu{Oid: oid, Value: value}
+			key := util.GetKeyByOid(ns.Oids, oid)
+			pdu := device.Pdu{Oid: oid, Value: value, Key: key}
 			ns.Pdus = append(ns.Pdus, pdu)
 		}
 	}
