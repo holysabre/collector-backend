@@ -3,7 +3,6 @@ package switch_port
 import (
 	"collector-agent/device"
 	"collector-agent/util"
-	"fmt"
 	"log"
 	"strconv"
 
@@ -40,27 +39,16 @@ func (sp *SwitchPort) SetOids(original_oids map[string]string) {
 	sp.RevertedOriginalOids = util.ReverseMap(original_oids)
 }
 
-func (sp *SwitchPort) GetByOids() {
-	// Default is a pointer to a GoSNMP struct that contains sensible defaults
-	// eg port 161, community public, etc
-	g.Default.Target = sp.Connection.Target
-	g.Default.Port = uint16(sp.Connection.Port)
-	g.Default.Community = sp.Connection.Community
-	g.Default.Version = device.GetSNMPVersion(sp.Connection.Version)
-	err := g.Default.Connect()
-	if err != nil {
-		log.Fatalf("Connect() err: %v", err)
-	}
-	defer g.Default.Conn.Close()
-
+func (sp *SwitchPort) GetByOids(conn *g.GoSNMP) {
 	oids := []string{}
 	for _, oid := range sp.Oids {
 		oids = append(oids, oid)
 	}
 
-	result, err2 := g.Default.Get(oids) // Get() accepts up to g.MAX_OIDS
+	result, err2 := conn.Get(oids) // Get() accepts up to g.MAX_OIDS
 	if err2 != nil {
-		log.Fatalf("Get() err: %v", err2)
+		log.Printf("Get() err: %v", err2)
+		return
 	}
 
 	pdus := []device.Pdu{}
@@ -69,7 +57,7 @@ func (sp *SwitchPort) GetByOids() {
 		oid, value := device.GetSNMPValue(variable, true)
 		key := sp.RevertedOriginalOids[oid]
 		pdu := device.Pdu{Oid: oid, Value: value, Key: key}
-		fmt.Println(pdu)
+		// fmt.Println(pdu)
 		pdus = append(pdus, pdu)
 	}
 	sp.Pdus = pdus

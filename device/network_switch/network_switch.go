@@ -32,40 +32,59 @@ func Collect(body []byte) NetworkSwitch {
 		return ns
 	}
 
+	conn := &g.GoSNMP{
+		Target:    ns.Connection.Target,
+		Port:      uint16(ns.Connection.Port),
+		Community: ns.Connection.Community,
+		Version:   device.GetSNMPVersion(ns.Connection.Version),
+		Timeout:   time.Duration(2) * time.Second,
+		Retries:   0,
+	}
+	err = conn.Connect()
+	if err != nil {
+		fmt.Printf("无法建立 SNMP 连接：%v", err)
+		return ns
+	}
+	defer conn.Conn.Close()
+
+	// 获取设备信息
+	resp, err := conn.Get([]string{".1.3.6.1.2.1.1.1.0", ".1.3.6.1.2.1.1.6.0"})
+	if err != nil {
+		log.Printf("ns %d SNMP 请求错误：%v", ns.ID, err)
+		return ns
+	}
+
+	if resp.Error != g.NoError {
+		log.Printf("SNMP 响应错误：%v", resp.Error)
+		return ns
+	}
+
 	for _, oid := range ns.Oids {
 		if oid == "" {
 			continue
 		}
-		ns.WalkAllByOid(oid)
+		ns.WalkAllByOid(oid, conn)
 	}
+	fmt.Printf("ns %d collect oids finished\n", ns.ID)
 
-	// port
 	for index, port := range ns.Ports {
 		port.Connection = ns.Connection
 		port.SetOids(ns.PortOids)
-		port.GetByOids()
+		port.GetByOids(conn)
 		ns.Ports[index] = port
 	}
+	fmt.Printf("ns %d collect ports oids finished\n", ns.ID)
 
 	ns.Time = time.Now()
 
 	return ns
 }
 
-func (ns *NetworkSwitch) WalkAllByOid(oid string) {
-	g.Default.Target = ns.Connection.Target
-	g.Default.Port = uint16(ns.Connection.Port)
-	g.Default.Community = ns.Connection.Community
-	g.Default.Version = device.GetSNMPVersion(ns.Connection.Version)
-	err := g.Default.Connect()
-	if err != nil {
-		log.Fatalf("Connect() err: %v", err)
-	}
-	defer g.Default.Conn.Close()
-
-	variables, err2 := g.Default.WalkAll(oid)
+func (ns *NetworkSwitch) WalkAllByOid(oid string, conn *g.GoSNMP) {
+	variables, err2 := conn.WalkAll(oid)
 	if err2 != nil {
-		log.Fatalf("Get() err: %v", err2)
+		util.FailOnError(err2, "Get() err: %v")
+		return
 	}
 
 	for _, variable := range variables {

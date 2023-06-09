@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/streadway/amqp"
@@ -24,12 +23,13 @@ type Msg struct {
 }
 
 type Collector struct {
-	MainCh   *amqp.Channel
-	MainQ    amqp.Queue
-	RetryCh  *amqp.Channel
-	RetryQ   amqp.Queue
-	ReturnCh *amqp.Channel
-	ReturnQ  amqp.Queue
+	MainCh      *amqp.Channel
+	MainQ       amqp.Queue
+	RetryCh     *amqp.Channel
+	RetryQ      amqp.Queue
+	ReturnCh    *amqp.Channel
+	ReturnQ     amqp.Queue
+	PublishChan chan Msg
 }
 
 func (c *Collector) Init(conn *amqp.Connection) (*amqp.Channel, *amqp.Channel, *amqp.Channel) {
@@ -55,11 +55,12 @@ func (c *Collector) handleCollect(msg Msg) {
 			fmt.Printf("无法编码为JSON格式: %v", err)
 		}
 		msg := Msg{Type: "switch", Time: time.Now().Unix(), Data: string(jsonData)}
-		publishMsg(c.ReturnCh, c.ReturnQ, msg)
+		c.PublishChan <- msg
+		// publishMsg(c.ReturnCh, c.ReturnQ, msg)
 	}
 }
 
-func publishMsg(ch *amqp.Channel, q amqp.Queue, msg Msg) {
+func publishMsg(ch *amqp.Channel, q amqp.Queue, msg Msg) error {
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
 		fmt.Printf("无法编码为JSON格式: %v", err)
@@ -76,10 +77,12 @@ func publishMsg(ch *amqp.Channel, q amqp.Queue, msg Msg) {
 		},
 	)
 	if err != nil {
-		log.Fatalf("无法发布消息: %v", err)
+		log.Printf("无法发布消息: %v", err)
+		return err
 	}
 
 	fmt.Println("消息已发送到队列！")
+	return nil
 }
 
 func (c *Collector) GetChAndQ(name string, conn *amqp.Connection) (*amqp.Channel, amqp.Queue) {
@@ -116,39 +119,32 @@ func (c *Collector) ListenQ(ch *amqp.Channel, q amqp.Queue) {
 	)
 	util.FailOnError(err, "Failed to register a consumer")
 
-	var wg sync.WaitGroup
-
-	coroutine_nums := default_coroutine_nums
-	if len(msgs) > default_coroutine_nums*2 {
-		coroutine_nums = default_coroutine_nums * 2
-		if coroutine_nums > max_coroutine_nums {
-			coroutine_nums = max_coroutine_nums
-		}
-	}
-
-	wg.Add(coroutine_nums)
-	// 处理接收到的消息
 	for d := range msgs {
-		go func(d amqp.Delivery, wg *sync.WaitGroup) {
-			// log.Printf("Received a message: %s", d.Body)
-			var msg Msg
-			err := json.Unmarshal(d.Body, &msg)
-			if err != nil {
-				fmt.Printf("无法解析JSON数据: %v", err)
+		var msg Msg
+		err := json.Unmarshal(d.Body, &msg)
+		if err != nil {
+			fmt.Printf("无法解析JSON数据: %v", err)
+			return
+		}
+		if msg.TryTimes >= max_try_times {
+			fmt.Printf("%s try timeout", msg.Type)
+			return
+		}
+		msg.TryTimes++
+		if msg.Type == "" {
+			if err := publishMsg(c.RetryCh, c.RetryQ, msg); err != nil {
 				return
 			}
-			if msg.TryTimes >= max_try_times {
-				fmt.Printf("%s try timeout", msg.Type)
-				return
-			}
-			msg.TryTimes++
-			if msg.Type == "" {
-				publishMsg(c.RetryCh, c.RetryQ, msg)
-				return
-			}
-			c.handleCollect(msg)
-			wg.Done()
-		}(d, &wg)
+		}
+		go c.handleCollect(msg)
 	}
-	wg.Wait()
+}
+
+func (c *Collector) ListenPublishQ() {
+	for i := 1; i > 0; i++ {
+		if err := publishMsg(c.ReturnCh, c.ReturnQ, <-c.PublishChan); err != nil {
+			fmt.Println("发送失败")
+		}
+		time.Sleep(100 * time.Microsecond)
+	}
 }

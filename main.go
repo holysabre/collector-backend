@@ -25,11 +25,16 @@ func run() {
 	defer retryCh.Close()
 	defer returnCh.Close()
 
+	collector.PublishChan = make(chan lib.Msg)
+
 	// 处理接收到的消息
 	forever := make(chan bool)
 
 	go collector.ListenQ(collector.MainCh, collector.MainQ)
+
 	go collector.ListenQ(collector.RetryCh, collector.RetryQ)
+
+	go collector.ListenPublishQ()
 
 	log.Printf(" [*] Waiting for messages. To exit, press CTRL+C")
 	<-forever
