@@ -8,6 +8,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/streadway/amqp"
 )
 
@@ -119,6 +120,8 @@ func (c *Collector) ListenQ(ch *amqp.Channel, q amqp.Queue) {
 	)
 	util.FailOnError(err, "Failed to register a consumer")
 
+	p := gopool.NewPool("collector-handler", 100, gopool.NewConfig())
+
 	for d := range msgs {
 		var msg Msg
 		err := json.Unmarshal(d.Body, &msg)
@@ -136,7 +139,9 @@ func (c *Collector) ListenQ(ch *amqp.Channel, q amqp.Queue) {
 				return
 			}
 		}
-		go c.handleCollect(msg)
+		p.Go(func() {
+			c.handleCollect(msg)
+		})
 	}
 }
 
