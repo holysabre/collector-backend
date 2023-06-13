@@ -1,0 +1,171 @@
+package rabbitmq
+
+import (
+	model_msg "collector-agent/models/msg"
+	model_ns "collector-agent/models/network_switch"
+	"collector-agent/pkg/network_switch"
+	"collector-agent/util"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/bytedance/gopkg/util/gopool"
+	"github.com/streadway/amqp"
+)
+
+const (
+	PoolCap                int32 = 100
+	max_try_times          int8  = 5
+	default_coroutine_nums int   = 10
+	max_coroutine_nums     int   = 30
+)
+
+type Connection struct {
+	Config Config
+	Conn   *amqp.Connection
+}
+type Config struct {
+	Url string
+}
+
+func NewConnection(config Config) (Connection, error) {
+	conn := Connection{}
+	amqpConn, err := amqp.Dial(config.Url)
+	util.FailOnError(err, "Failed to connect to RabbitMQ")
+	conn.Conn = amqpConn
+	return conn, nil
+}
+
+type Controller struct {
+	Channel      *amqp.Channel
+	Queue        amqp.Queue
+	Pool         gopool.Pool
+	RetryChannel *amqp.Channel
+	RetryQueue   amqp.Queue
+	ReturnChann  *chan model_msg.Msg
+}
+
+func NewCtrl(poolName string, returnChan *chan model_msg.Msg) *Controller {
+	return &Controller{
+		Pool:        gopool.NewPool(poolName, PoolCap, gopool.NewConfig()),
+		ReturnChann: returnChan,
+	}
+}
+
+func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connection) error {
+	ch, err := amqpConn.Channel()
+	util.FailOnError(err, "Failed to open a channel")
+
+	q, err := ch.QueueDeclare(
+		name,  // 队列名称
+		false, // 是否持久化
+		false, // 是否自动删除
+		false, // 是否具有排他性
+		false, // 是否阻塞等待
+		nil,   // 额外的属性
+	)
+	util.FailOnError(err, "Failed to declare a queue")
+
+	log.Printf("%s channel & queue declared", name)
+
+	ctrl.Channel = ch
+	ctrl.Queue = q
+
+	return nil
+}
+
+func (ctrl *Controller) ListenQueue() {
+	// 接收消息从队列
+	msgs, err := ctrl.Channel.Consume(
+		ctrl.Queue.Name, // 队列名称
+		"",              // 消费者标签
+		true,            // 是否自动回复
+		false,           // 是否独占
+		false,           // 是否阻塞等待
+		false,           // 额外的属性
+		nil,             // 消费者取消回调函数
+	)
+	util.FailOnError(err, "Failed to register a consumer")
+
+	for d := range msgs {
+		var msg model_msg.Msg
+		err := json.Unmarshal(d.Body, &msg)
+		if err != nil {
+			fmt.Printf("无法解析JSON数据: %v", err)
+			return
+		}
+		if msg.TryTimes >= max_try_times {
+			fmt.Printf("%s try timeout", msg.Type)
+			return
+		}
+		msg.TryTimes++
+		if msg.Type == "" {
+			if err := publishMsg(ctrl.RetryChannel, ctrl.RetryQueue, msg); err != nil {
+				return
+			}
+		}
+		ctrl.Pool.Go(func() {
+			ctrl.handleCollect(msg)
+		})
+	}
+}
+
+func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
+	log.Println("Type: ", msg.Type)
+	body := []byte(msg.Data)
+	switch msg.Type {
+	case "switch":
+		var ns model_ns.NetworkSwitch
+		err := json.Unmarshal(body, &ns)
+		if err != nil {
+			fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
+			return
+		}
+		nsc := network_switch.NewNSCollector(&ns)
+		nsc.Collect()
+		jsonData, err := json.Marshal(nsc.NetworkSwitch)
+		if err != nil {
+			fmt.Printf("无法编码为JSON格式: %v", err)
+		}
+		returnMsg := model_msg.Msg{Type: "switch", Time: time.Now().Unix(), Data: string(jsonData)}
+		*ctrl.ReturnChann <- returnMsg
+	}
+}
+
+func (ctrl *Controller) ListenReturnQueue() {
+	for {
+		if len(*ctrl.ReturnChann) == 0 {
+			time.Sleep(100 * time.Microsecond)
+			continue
+		}
+		if err := publishMsg(ctrl.Channel, ctrl.Queue, <-*ctrl.ReturnChann); err != nil {
+			fmt.Println("发送失败")
+		}
+	}
+}
+
+func publishMsg(ch *amqp.Channel, q amqp.Queue, msg model_msg.Msg) error {
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		fmt.Printf("无法编码为JSON格式: %v", err)
+	}
+	// 发布消息到队列
+	err = ch.Publish(
+		"",     // 交换机名称
+		q.Name, // 队列名称
+		false,  // 是否强制
+		false,  // 是否立即发送
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(jsonData),
+		},
+	)
+	if err != nil {
+		log.Printf("无法发布消息: %v", err)
+		return err
+	}
+
+	fmt.Println("消息已发送到队列！")
+	return nil
+}

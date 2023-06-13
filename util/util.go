@@ -27,3 +27,9 @@ func GetKeyByOid(m map[string]string, oid string) string {
 	}
 	return ""
 }
+
+func LogIfErr(err error) {
+	if err != nil {
+		log.Printf("%s \n", err.Error())
+	}
+}

@@ -1,41 +1,73 @@
 package main
 
 import (
-	"collector-agent/lib"
+	"collector-agent/models/msg"
+	"collector-agent/pkg/rabbitmq"
 	"collector-agent/util"
-	"log"
-
-	"github.com/streadway/amqp"
 )
 
 func main() {
-	run()
-}
+	config := rabbitmq.Config{Url: "amqp://root:password@192.168.88.112:5672/"}
+	conn, err := rabbitmq.NewConnection(config)
+	util.LogIfErr(err)
+	defer conn.Conn.Close()
 
-func run() {
-	// 连接到RabbitMQ服务器
-	conn, err := amqp.Dial("amqp://root:password@192.168.88.112:5672/")
-	util.FailOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
+	returnChan := make(chan msg.Msg, 1000)
 
-	var collector lib.Collector
+	mainName := "collector-main"
+	mainCtrl := rabbitmq.NewCtrl(mainName, &returnChan)
+	mainCtrl.SetupChannelAndQueue(mainName, conn.Conn)
+	defer mainCtrl.Channel.Close()
 
-	mainCh, retryCh, returnCh := collector.Init(conn)
-	defer mainCh.Close()
-	defer retryCh.Close()
-	defer returnCh.Close()
+	retryName := "collector-retry"
+	retryCtrl := rabbitmq.NewCtrl(retryName, &returnChan)
+	retryCtrl.SetupChannelAndQueue(retryName, conn.Conn)
+	defer retryCtrl.Channel.Close()
 
-	collector.PublishChan = make(chan lib.Msg)
+	returnName := "collector-return"
+	returnCtrl := rabbitmq.NewCtrl(returnName, &returnChan)
+	returnCtrl.SetupChannelAndQueue(returnName, conn.Conn)
+	defer returnCtrl.Channel.Close()
 
-	// 处理接收到的消息
+	mainCtrl.RetryChannel = retryCtrl.Channel
+	mainCtrl.RetryQueue = retryCtrl.Queue
+
+	retryCtrl.RetryChannel = retryCtrl.Channel
+	retryCtrl.RetryQueue = retryCtrl.Queue
+
 	forever := make(chan bool)
 
-	go collector.ListenQ(collector.MainCh, collector.MainQ)
+	go mainCtrl.ListenQueue()
+	go retryCtrl.ListenQueue()
+	go returnCtrl.ListenReturnQueue()
 
-	go collector.ListenQ(collector.RetryCh, collector.RetryQ)
-
-	go collector.ListenPublishQ()
-
-	log.Printf(" [*] Waiting for messages. To exit, press CTRL+C")
 	<-forever
 }
+
+// func run() {
+// 	// 连接到RabbitMQ服务器
+// 	conn, err := amqp.Dial("amqp://root:password@192.168.88.112:5672/")
+// 	util.FailOnError(err, "Failed to connect to RabbitMQ")
+// 	defer conn.Close()
+
+// 	var collector lib.Collector
+
+// 	mainCh, retryCh, returnCh := collector.Init(conn)
+// 	defer mainCh.Close()
+// 	defer retryCh.Close()
+// 	defer returnCh.Close()
+
+// 	collector.PublishChan = make(chan lib.Msg)
+
+// 	// 处理接收到的消息
+// 	forever := make(chan bool)
+
+// 	go collector.ListenQ(collector.MainCh, collector.MainQ)
+
+// 	go collector.ListenQ(collector.RetryCh, collector.RetryQ)
+
+// 	go collector.ListenPublishQ()
+
+// 	log.Printf(" [*] Waiting for messages. To exit, press CTRL+C")
+// 	<-forever
+// }

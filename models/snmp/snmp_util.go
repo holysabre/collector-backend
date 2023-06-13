@@ -1,23 +1,10 @@
-package device
+package snmp
 
 import (
 	"strings"
 
 	g "github.com/gosnmp/gosnmp"
 )
-
-type SNMPConnection struct {
-	Target    string `json:"target"`
-	Port      int    `json:"port"`
-	Community string `json:"community"`
-	Version   string `json:"version"`
-}
-
-type Pdu struct {
-	Oid   string      `json:"oid"`
-	Key   string      `json:"key"`
-	Value interface{} `json:"value"`
-}
 
 func GetSNMPVersion(v string) (version g.SnmpVersion) {
 	switch v {
