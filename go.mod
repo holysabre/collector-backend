@@ -7,3 +7,5 @@ require (
 	github.com/gosnmp/gosnmp v1.35.0
 	github.com/streadway/amqp v1.0.0
 )
+
+require github.com/vmware/goipmi v0.0.0-20181114221114-2333cd82d702

@@ -1,7 +1,10 @@
 package util
 
 import (
+	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -32,4 +35,31 @@ func LogIfErr(err error) {
 	if err != nil {
 		log.Printf("%s \n", err.Error())
 	}
+}
+
+func GetBinDir() string {
+	if IsTesting() {
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Println(err)
+		}
+		dir := wd + "/bin"
+
+		return dir
+	} else {
+		fmt.Println("exec binary")
+		exePath, err := os.Executable()
+		if err != nil {
+			panic(err)
+		}
+		exeDir := filepath.Dir(exePath)
+		templatesDir := filepath.Join(exeDir, "bin")
+		fmt.Println("templatesDir:", templatesDir)
+		return templatesDir
+	}
+}
+
+func IsTesting() bool {
+	args := os.Args
+	return len(args) > 0 && strings.Contains(strings.ToLower(os.Args[0]), "go-build")
 }
