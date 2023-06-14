@@ -3,13 +3,11 @@ package main
 import (
 	"collector-agent/models/msg"
 	"collector-agent/pkg/rabbitmq"
-	"collector-agent/pkg/server"
 	"collector-agent/util"
 )
 
 func main() {
-	sc := server.NewServerCollector()
-	sc.Collect()
+	run()
 }
 
 func run() {

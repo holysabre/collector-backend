@@ -2,41 +2,118 @@ package server
 
 import (
 	"collector-agent/util"
+	"context"
+	"errors"
 	"fmt"
+	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
-	goipmi "github.com/vmware/goipmi"
+	model_ipmi "collector-agent/models/ipmi"
+	model_server "collector-agent/models/server"
 )
 
-type ServerCollector struct{}
+const CmdTimeout = 5 * time.Second
 
-func NewServerCollector() *ServerCollector {
-	return &ServerCollector{}
+type ServerCollector struct {
+	Connection model_ipmi.Connection
+	Server     *model_server.Server
+}
+
+func NewServerCollector(s *model_server.Server) *ServerCollector {
+	return &ServerCollector{
+		Server:     s,
+		Connection: s.Connection,
+	}
 }
 
 func (sc *ServerCollector) Collect() {
+	fmt.Printf("collect #%d start \n", sc.Server.ID)
+	if status, err := sc.getPower(); err == nil {
+		sc.Server.PowerStatus = status
+	}
+	if power, err := sc.PowerReading(); err == nil {
+		sc.Server.PowerReading = power
+	}
+	fmt.Println("collect done \n", sc.Server)
+}
 
-	rootDir := util.GetBinDir()
-	filename := rootDir + "/" + "ipmitool"
-
-	conn := goipmi.Connection{
-		Path:      filename,
-		Hostname:  "192.168.109.2",
-		Username:  "root",
-		Password:  "root",
-		Interface: "lanplus",
+func (sc *ServerCollector) getPower() (string, error) {
+	status := "Unknown"
+	args := []string{"power", "status"}
+	out, err := sc.run("ipmitool", args)
+	if err != nil {
+		return status, err
 	}
 
-	client, err := goipmi.NewClient(&conn)
-	util.LogIfErr(err)
+	pattern := `Chassis Power is (on|off)`
+	reg := regexp.MustCompile(pattern)
+	matches := reg.FindStringSubmatch(string(out))
+	if len(matches) < 2 {
+		return status, err
+	}
+	status = matches[1]
+	fmt.Printf("server #%d power status: %s \n", sc.Server.ID, status)
 
-	defer client.Close()
+	sc.Server.Time = time.Now()
 
-	err = client.Open()
-	util.LogIfErr(err)
+	return status, nil
+}
 
-	id, err := client.DeviceID()
-	util.LogIfErr(err)
+func (sc *ServerCollector) PowerReading() (int, error) {
+	args := []string{"dcmi", "power", "reading"}
 
-	fmt.Println(id)
+	var out []byte
+	var err error
+	out, err = sc.run("ipmitool", args)
+	if err != nil {
+		return 0, err
+	}
 
+	pattern := `Instantaneous power reading:\s+([\d.]+)\s+Watts`
+	reg := regexp.MustCompile(pattern)
+	matches := reg.FindStringSubmatch(string(out))
+	if len(matches) > 1 {
+		power, _ := strconv.Atoi(matches[1])
+		fmt.Printf("server #%d power reading: %d \n", sc.Server.ID, power)
+		return power, nil
+	}
+
+	if strings.ContainsAny(string(out), "DCMI request failed") {
+		fmt.Println("run old ipmitool")
+		oldArgs := []string{"sdr", "get", "Power"}
+		rootDir := util.GetBinDir()
+		oldCommand := rootDir + "/ipmitool"
+		out, err = sc.run(oldCommand, oldArgs)
+		if err != nil {
+			return 0, err
+		}
+		pattern = `^\s*Sensor Reading\s+:\s+(\d+)`
+		reg = regexp.MustCompile(pattern)
+		matches = reg.FindStringSubmatch(string(out))
+		if len(matches) > 1 {
+			power, _ := strconv.Atoi(matches[1])
+			return power, nil
+		}
+	}
+
+	return 0, errors.New("cannot get power")
+}
+
+func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, error) {
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, CmdTimeout)
+	defer cancel()
+
+	args := []string{"-R", "2", "-H", sc.Connection.Hostname, "-U", sc.Connection.Username, "-P", sc.Connection.Password, "-I", "lanplus"}
+	args = append(args, appendArgs...)
+	cmd := exec.CommandContext(ctx, command, args...)
+	// fmt.Println("cmd: ", cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return out, err
+	}
+	return out, nil
 }

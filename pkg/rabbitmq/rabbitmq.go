@@ -3,7 +3,9 @@ package rabbitmq
 import (
 	model_msg "collector-agent/models/msg"
 	model_ns "collector-agent/models/network_switch"
+	model_server "collector-agent/models/server"
 	"collector-agent/pkg/network_switch"
+	"collector-agent/pkg/server"
 	"collector-agent/util"
 	"encoding/json"
 	"fmt"
@@ -129,6 +131,22 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 			fmt.Printf("无法编码为JSON格式: %v", err)
 		}
 		returnMsg := model_msg.Msg{Type: "switch", Time: time.Now().Unix(), Data: string(jsonData)}
+		*ctrl.ReturnChann <- returnMsg
+	case "server":
+		var s model_server.Server
+		err := json.Unmarshal(body, &s)
+		if err != nil {
+			fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
+			return
+		}
+		sc := server.NewServerCollector(&s)
+		sc.Collect()
+		// fmt.Println(sc.Server)
+		jsonData, err := json.Marshal(sc.Server)
+		if err != nil {
+			fmt.Printf("无法编码为JSON格式: %v", err)
+		}
+		returnMsg := model_msg.Msg{Type: "server", Time: time.Now().Unix(), Data: string(jsonData)}
 		*ctrl.ReturnChann <- returnMsg
 	}
 }
