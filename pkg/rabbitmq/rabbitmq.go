@@ -4,8 +4,10 @@ import (
 	model_msg "collector-agent/models/msg"
 	model_ns "collector-agent/models/network_switch"
 	model_server "collector-agent/models/server"
+	model_system "collector-agent/models/system"
 	"collector-agent/pkg/network_switch"
 	"collector-agent/pkg/server"
+	"collector-agent/pkg/system"
 	"collector-agent/util"
 	"encoding/json"
 	"fmt"
@@ -147,6 +149,21 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 			fmt.Printf("无法编码为JSON格式: %v", err)
 		}
 		returnMsg := model_msg.Msg{Type: "server", Time: time.Now().Unix(), Data: string(jsonData)}
+		*ctrl.ReturnChann <- returnMsg
+	case "system":
+		var s model_system.SystemInfo
+		err := json.Unmarshal(body, &s)
+		if err != nil {
+			fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
+			return
+		}
+		sc := system.NewSystemCollector(&s)
+		sc.Collect()
+		jsonData, err := json.Marshal(sc.SystemInfo)
+		if err != nil {
+			fmt.Printf("无法编码为JSON格式: %v", err)
+		}
+		returnMsg := model_msg.Msg{Type: "system", Time: time.Now().Unix(), Data: string(jsonData)}
 		*ctrl.ReturnChann <- returnMsg
 	}
 }
