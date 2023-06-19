@@ -13,6 +13,7 @@ require github.com/vmware/goipmi v0.0.0-20181114221114-2333cd82d702
 require (
 	github.com/bzick/tokenizer v1.3.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/shirou/gopsutil/v3 v3.23.5 // indirect
