@@ -12,6 +12,7 @@ require github.com/vmware/goipmi v0.0.0-20181114221114-2333cd82d702
 
 require (
 	github.com/bzick/tokenizer v1.3.0 // indirect
+	github.com/farmerx/gorsa v0.0.0-20161211100049-3ae06f674f40 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect

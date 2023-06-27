@@ -9,6 +9,7 @@ import (
 	"collector-agent/pkg/server"
 	"collector-agent/pkg/system"
 	"collector-agent/util"
+	"collector-agent/util/crypt_util"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -94,9 +95,14 @@ func (ctrl *Controller) ListenQueue() {
 
 	for d := range msgs {
 		var msg model_msg.Msg
-		err := json.Unmarshal(d.Body, &msg)
+		decryptedBody, err := crypt_util.New().DecryptViaPub(d.Body)
 		if err != nil {
-			fmt.Printf("无法解析JSON数据: %v", err)
+			fmt.Printf("Unable to decrypt data: %v", err)
+			return
+		}
+		err = json.Unmarshal(decryptedBody, &msg)
+		if err != nil {
+			fmt.Printf("Unable to parse json data: %v", err)
 			return
 		}
 		if msg.TryTimes >= max_try_times {
@@ -105,7 +111,7 @@ func (ctrl *Controller) ListenQueue() {
 		}
 		msg.TryTimes++
 		if msg.Type == "" {
-			if err := publishMsg(ctrl.RetryChannel, ctrl.RetryQueue, msg); err != nil {
+			if err := ctrl.publishMsg(ctrl.RetryChannel, ctrl.RetryQueue, msg); err != nil {
 				return
 			}
 		}
@@ -174,16 +180,22 @@ func (ctrl *Controller) ListenReturnQueue() {
 			time.Sleep(100 * time.Microsecond)
 			continue
 		}
-		if err := publishMsg(ctrl.Channel, ctrl.Queue, <-*ctrl.ReturnChann); err != nil {
-			fmt.Println("发送失败")
+		if err := ctrl.publishMsg(ctrl.Channel, ctrl.Queue, <-*ctrl.ReturnChann); err != nil {
+			fmt.Println("Fail to publish")
 		}
 	}
 }
 
-func publishMsg(ch *amqp.Channel, q amqp.Queue, msg model_msg.Msg) error {
+func (ctrl *Controller) publishMsg(ch *amqp.Channel, q amqp.Queue, msg model_msg.Msg) error {
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
-		fmt.Printf("无法编码为JSON格式: %v", err)
+		fmt.Printf("Cannot be encoded in json format: %v", err)
+		return err
+	}
+	encryptedMsg, err := crypt_util.New().EncryptViaPub(jsonData)
+	if err != nil {
+		fmt.Printf("Cannot encrypted data: %v", err)
+		return err
 	}
 	// 发布消息到队列
 	err = ch.Publish(
@@ -193,14 +205,13 @@ func publishMsg(ch *amqp.Channel, q amqp.Queue, msg model_msg.Msg) error {
 		false,  // 是否立即发送
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte(jsonData),
+			Body:        encryptedMsg,
 		},
 	)
 	if err != nil {
-		log.Printf("无法发布消息: %v", err)
 		return err
 	}
 
-	fmt.Println("消息已发送到队列！")
+	fmt.Println("Msg Published")
 	return nil
 }
