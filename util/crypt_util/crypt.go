@@ -1,6 +1,7 @@
 package crypt_util
 
 import (
+	"collector-agent/util"
 	"encoding/pem"
 	"log"
 	"os"
@@ -12,6 +13,11 @@ import (
 var once sync.Once
 
 var internalCryptUtil *CryptUtil
+var rootDir string
+
+func init() {
+	rootDir = util.GetRootDir()
+}
 
 type CryptUtil struct {
 }
@@ -20,7 +26,7 @@ func New() *CryptUtil {
 	once.Do(func() {
 		internalCryptUtil = &CryptUtil{}
 
-		publicKeyPEM, err := os.ReadFile("./storage/keys/publicKey.pem")
+		publicKeyPEM, err := os.ReadFile(rootDir + "/storage/keys/publicKey.pem")
 		if err != nil {
 			log.Fatal("Private key not found")
 		}

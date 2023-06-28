@@ -37,6 +37,25 @@ func LogIfErr(err error) {
 	}
 }
 
+func GetRootDir() string {
+	var dir string
+	var err error
+	if IsTesting() {
+		dir, err = os.Getwd()
+		if err != nil {
+			fmt.Println(err)
+		}
+	} else {
+		exePath, err := os.Executable()
+		if err != nil {
+			panic(err)
+		}
+		dir = filepath.Dir(exePath)
+	}
+	fmt.Println("root dir: ", dir)
+	return dir
+}
+
 func GetBinDir() string {
 	if IsTesting() {
 		wd, err := os.Getwd()
