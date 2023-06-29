@@ -1,2 +1,6 @@
 .env
 storage/*
+run.sh
+build.sh
+start.sh
+collector
