@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -18,11 +17,6 @@ func main() {
 }
 
 func run() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("无法加载 .env 文件")
-	}
-
 	// 访问环境变量
 	amqpUsername := os.Getenv("RABBITMQ_USERNAME")
 	amqpPassowd := os.Getenv("RABBITMQ_PASSWORD")
