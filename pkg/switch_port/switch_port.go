@@ -3,6 +3,7 @@ package switch_port
 import (
 	model_snmp "collector-agent/models/snmp"
 	model_sp "collector-agent/models/switch_port"
+	"fmt"
 	"log"
 
 	g "github.com/gosnmp/gosnmp"
@@ -45,13 +46,16 @@ func (spc *SPCollector) GetByOids() {
 		return
 	}
 
-	pdus := []model_snmp.Pdu{}
+	if result.Error != g.NoError {
+		errOid := oids[result.ErrorIndex-1]
+		fmt.Printf("portId: %d, oid: %s, err: %s \n", spc.SwitchPort.ID, errOid, result.Error.String())
+	}
 
+	pdus := []model_snmp.Pdu{}
 	for _, variable := range result.Variables {
 		oid, value := model_snmp.GetSNMPValue(variable, true)
 		key := spc.SwitchPort.RevertedOriginalOids[oid]
 		pdu := model_snmp.Pdu{Oid: oid, Value: value, Key: key}
-		// fmt.Println(pdu)
 		pdus = append(pdus, pdu)
 	}
 	spc.SwitchPort.Pdus = pdus

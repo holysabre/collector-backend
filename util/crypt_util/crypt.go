@@ -68,6 +68,8 @@ func (cu *CryptUtil) DecryptViaPub(input []byte) ([]byte, error) {
 		data := input[i : i+decryptChunkSize]
 		decrypted, err := gorsa.RSA.PubKeyDECRYPT(data)
 		if err != nil {
+			log.Println(data)
+			log.Println(string(data))
 			panic(err.Error())
 		}
 		decryptedData = append(decryptedData, decrypted...)

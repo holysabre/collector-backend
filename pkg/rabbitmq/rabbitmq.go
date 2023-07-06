@@ -49,6 +49,7 @@ type Controller struct {
 	RetryChannel *amqp.Channel
 	RetryQueue   amqp.Queue
 	ReturnChann  *chan model_msg.Msg
+	SlaveID      string
 }
 
 func NewCtrl(poolName string, returnChan *chan model_msg.Msg) *Controller {
@@ -65,12 +66,15 @@ func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connect
 	q, err := ch.QueueDeclare(
 		name,  // 队列名称
 		false, // 是否持久化
-		false, // 是否自动删除
+		true,  // 是否自动删除
 		false, // 是否具有排他性
 		false, // 是否阻塞等待
 		nil,   // 额外的属性
 	)
 	util.FailOnError(err, "Failed to declare a queue")
+
+	// err = ch.QueueBind(name, "agent", "dcim-collector", false, nil)
+	// util.FailOnError(err, "Failed to bind queue")
 
 	log.Printf("%s channel & queue declared", name)
 
@@ -81,12 +85,13 @@ func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connect
 }
 
 func (ctrl *Controller) ListenQueue() {
+	consumeTag := "slave-" + ctrl.SlaveID
 	// 接收消息从队列
 	msgs, err := ctrl.Channel.Consume(
 		ctrl.Queue.Name, // 队列名称
-		"",              // 消费者标签
+		consumeTag,      // 消费者标签
 		true,            // 是否自动回复
-		false,           // 是否独占
+		true,            // 是否独占
 		false,           // 是否阻塞等待
 		false,           // 额外的属性
 		nil,             // 消费者取消回调函数
@@ -181,7 +186,7 @@ func (ctrl *Controller) ListenReturnQueue() {
 			continue
 		}
 		if err := ctrl.publishMsg(ctrl.Channel, ctrl.Queue, <-*ctrl.ReturnChann); err != nil {
-			fmt.Println("Fail to publish")
+			fmt.Println("Fail to publish, err: ", err)
 		}
 	}
 }

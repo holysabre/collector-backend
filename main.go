@@ -29,6 +29,12 @@ func run() {
 	} else if err != nil {
 		log.Fatal(err)
 	}
+	slaveID, err := client.Get(context.Background(), "SlaveID").Result()
+	if err == redis.Nil {
+		log.Fatal("SlaveID not found")
+	} else if err != nil {
+		log.Fatal(err)
+	}
 
 	url := "amqp://" + amqpUsername + ":" + amqpPassowd + "@" + amqpUrl
 	log.Println("amqp url: ", url)
@@ -42,16 +48,19 @@ func run() {
 
 	mainName := "collector-main"
 	mainCtrl := rabbitmq.NewCtrl(mainName, &returnChan)
+	mainCtrl.SlaveID = slaveID
 	mainCtrl.SetupChannelAndQueue(mainName, conn.Conn)
 	defer mainCtrl.Channel.Close()
 
 	retryName := "collector-retry"
 	retryCtrl := rabbitmq.NewCtrl(retryName, &returnChan)
+	retryCtrl.SlaveID = slaveID
 	retryCtrl.SetupChannelAndQueue(retryName, conn.Conn)
 	defer retryCtrl.Channel.Close()
 
 	returnName := "collector-return"
 	returnCtrl := rabbitmq.NewCtrl(returnName, &returnChan)
+	retryCtrl.SlaveID = slaveID
 	returnCtrl.SetupChannelAndQueue(returnName, conn.Conn)
 	defer returnCtrl.Channel.Close()
 

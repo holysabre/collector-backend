@@ -31,13 +31,21 @@ func NewServerCollector(s *model_server.Server) *ServerCollector {
 
 func (sc *ServerCollector) Collect() {
 	fmt.Printf("collect #%d start \n", sc.Server.ID)
-	if status, err := sc.getPower(); err == nil {
+	status, err := sc.getPower()
+	if err != nil {
+		fmt.Printf("server #%d get power failed, err: %v \n", sc.Server.ID, err.Error())
+	} else {
 		sc.Server.PowerStatus = status
 	}
-	if power, err := sc.PowerReading(); err == nil {
+
+	power, err := sc.PowerReading()
+	if err != nil {
+		fmt.Printf("server #%d get power reading failed, err: %v \n", sc.Server.ID, err.Error())
+	} else {
 		sc.Server.PowerReading = power
 	}
-	fmt.Println("collect done \n", sc.Server)
+
+	fmt.Println("collect done", sc.Server)
 }
 
 func (sc *ServerCollector) getPower() (string, error) {
@@ -47,6 +55,7 @@ func (sc *ServerCollector) getPower() (string, error) {
 	if err != nil {
 		return status, err
 	}
+	fmt.Println(string(out))
 
 	pattern := `Chassis Power is (on|off)`
 	reg := regexp.MustCompile(pattern)
