@@ -55,7 +55,7 @@ func (cu *CryptUtil) EncryptViaPub(input []byte) ([]byte, error) {
 		data := input[i : i+chunkSize]
 		encrypted, err := gorsa.RSA.PubKeyENCTYPT(data)
 		if err != nil {
-			panic(err)
+			return []byte{}, err
 		}
 		encryptedData = append(encryptedData, encrypted...)
 	}
@@ -70,7 +70,7 @@ func (cu *CryptUtil) DecryptViaPub(input []byte) ([]byte, error) {
 		if err != nil {
 			log.Println(data)
 			log.Println(string(data))
-			panic(err.Error())
+			return []byte{}, err
 		}
 		decryptedData = append(decryptedData, decrypted...)
 	}
@@ -87,7 +87,7 @@ func (cu *CryptUtil) EncryptViaPrivate(input []byte) ([]byte, error) {
 		data := input[i : i+chunkSize]
 		encrypted, err := gorsa.RSA.PriKeyENCTYPT(data)
 		if err != nil {
-			panic(err)
+			return []byte{}, err
 		}
 		encryptedData = append(encryptedData, encrypted...)
 	}
@@ -100,7 +100,7 @@ func (cu *CryptUtil) DecryptViaPrivate(input []byte) ([]byte, error) {
 		data := input[i : i+decryptChunkSize]
 		decrypted, err := gorsa.RSA.PriKeyDECRYPT(data)
 		if err != nil {
-			panic(err)
+			return []byte{}, err
 		}
 		decryptedData = append(decryptedData, decrypted...)
 	}
