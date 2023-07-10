@@ -45,7 +45,7 @@ func (sc *ServerCollector) Collect() {
 		sc.Server.PowerReading = power
 	}
 
-	fmt.Println("collect done", sc.Server)
+	fmt.Println("collect done")
 }
 
 func (sc *ServerCollector) getPower() (string, error) {

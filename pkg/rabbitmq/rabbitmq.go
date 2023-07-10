@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -101,7 +102,13 @@ func (ctrl *Controller) ListenQueue() {
 
 	for d := range msgs {
 		var msg model_msg.Msg
-		decodedBytes, err := base64.StdEncoding.DecodeString(string(d.Body))
+		fmt.Println(string(d.Body))
+		splited := strings.Split(string(d.Body), "|")
+		if len(splited) < 2 {
+			return
+		}
+		fmt.Println(splited[0])
+		decodedBytes, err := base64.StdEncoding.DecodeString(splited[1])
 		if err != nil {
 			fmt.Printf("Unable to decode base64 data: %v", err)
 			return
