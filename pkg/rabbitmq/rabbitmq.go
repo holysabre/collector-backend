@@ -10,7 +10,6 @@ import (
 	"collector-agent/pkg/server"
 	"collector-agent/pkg/system"
 	"collector-agent/util"
-	"collector-agent/util/crypt_util"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -112,12 +111,12 @@ func (ctrl *Controller) ListenQueue() {
 			fmt.Printf("Unable to decode base64 data: %v", err)
 			return
 		}
-		decryptedBody, err := crypt_util.New().DecryptViaPub(decodedBytes)
-		if err != nil {
-			fmt.Printf("Unable to decrypt data: %v", err)
-			return
-		}
-		err = json.Unmarshal(decryptedBody, &msg)
+		// decryptedBody, err := crypt_util.New().DecryptViaPub(decodedBytes)
+		// if err != nil {
+		// 	fmt.Printf("Unable to decrypt data: %v", err)
+		// 	return
+		// }
+		err = json.Unmarshal(decodedBytes, &msg)
 		if err != nil {
 			fmt.Printf("Unable to parse json data: %v", err)
 			return
@@ -209,12 +208,12 @@ func (ctrl *Controller) publishMsg(ch *amqp.Channel, q amqp.Queue, msg model_msg
 		fmt.Printf("Cannot be encoded in json format: %v", err)
 		return err
 	}
-	encryptedMsg, err := crypt_util.New().EncryptViaPub(jsonData)
-	if err != nil {
-		fmt.Printf("Cannot encrypted data: %v", err)
-		return err
-	}
-	encodedMsg := base64.StdEncoding.EncodeToString(encryptedMsg)
+	// encryptedMsg, err := crypt_util.New().EncryptViaPub(jsonData)
+	// if err != nil {
+	// 	fmt.Printf("Cannot encrypted data: %v", err)
+	// 	return err
+	// }
+	encodedMsg := base64.StdEncoding.EncodeToString(jsonData)
 	// 发布消息到队列
 	err = ch.Publish(
 		"",     // 交换机名称
