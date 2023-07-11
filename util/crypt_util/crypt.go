@@ -15,7 +15,7 @@ var once sync.Once
 
 var internalCryptUtil *CryptUtil
 
-var encryptChunkSize = 512
+var encryptChunkSize = 501
 var decryptChunkSize = 512
 
 type CryptUtil struct {
@@ -64,14 +64,15 @@ func (cu *CryptUtil) EncryptViaPub(input []byte) ([]byte, error) {
 
 func (cu *CryptUtil) DecryptViaPub(input []byte) ([]byte, error) {
 	decryptedData := []byte{}
-	log.Printf("input len: %d \n", len(input))
+	log.Printf("input len: %d, chunk size: %d \n", len(input), decryptChunkSize)
 	for i := 0; i < len(input); i += decryptChunkSize {
 		data := input[i : i+decryptChunkSize]
+		log.Printf("[%d] data: %v \n", i, data)
 		decrypted, err := gorsa.RSA.PubKeyDECRYPT(data)
 		if err != nil {
 			log.Println(data)
 			log.Println(string(data))
-			log.Panicln(err)
+			log.Println(err)
 			return []byte{}, err
 		}
 		log.Printf("i: %d, data: %s \n", i, decrypted)

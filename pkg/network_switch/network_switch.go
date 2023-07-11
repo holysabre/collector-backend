@@ -77,7 +77,7 @@ func (nsc *NSCollector) Collect() error {
 func (nsc *NSCollector) WalkAllByOid(oid string) error {
 	variables, err2 := nsc.Connection.WalkAll(oid)
 	if err2 != nil {
-		util.FailOnError(err2, "Get() err: %v")
+		util.FailOnError(err2, "Get() err")
 		return err2
 	}
 

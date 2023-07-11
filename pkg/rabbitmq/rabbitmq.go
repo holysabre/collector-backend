@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"bytes"
 	model_msg "collector-agent/models/msg"
 	model_ns "collector-agent/models/network_switch"
 	model_server "collector-agent/models/server"
@@ -14,7 +15,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -94,7 +94,7 @@ func (ctrl *Controller) ListenQueue() {
 		consumeTag,      // 消费者标签
 		true,            // 是否自动回复
 		true,            // 是否独占
-		false,           // 是否阻塞等待
+		true,            // 是否阻塞等待
 		false,           // 额外的属性
 		nil,             // 消费者取消回调函数
 	)
@@ -102,13 +102,12 @@ func (ctrl *Controller) ListenQueue() {
 
 	for d := range msgs {
 		var msg model_msg.Msg
-		fmt.Println(string(d.Body))
-		splited := strings.Split(string(d.Body), "|")
+		splited := bytes.Split(d.Body, []byte{'|'})
 		if len(splited) < 2 {
 			return
 		}
-		fmt.Println(splited[0])
-		decodedBytes, err := base64.StdEncoding.DecodeString(splited[1])
+		fmt.Println(string(splited[0]), splited[1])
+		decodedBytes, err := base64.StdEncoding.DecodeString(string(splited[1]))
 		if err != nil {
 			fmt.Printf("Unable to decode base64 data: %v", err)
 			return
