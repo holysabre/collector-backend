@@ -71,7 +71,7 @@ func (sc *SystemCollector) collectIOStat() {
 				Value: disks,
 			}
 			sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, disksParame)
-			fmt.Println(sc.SystemInfo.Parames)
+			// fmt.Println(sc.SystemInfo.Parames)
 		}
 	}
 }
@@ -114,7 +114,7 @@ func (sc *SystemCollector) collectDisk() {
 			continue
 		}
 
-		fmt.Println(usage)
+		// fmt.Println(usage)
 
 		usageStat := map[string]interface{}{
 			"total":      usage.Total,
@@ -197,7 +197,7 @@ func (sc *SystemCollector) run(command string, args []string) ([]byte, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, command, args...)
-	fmt.Println("cmd: ", cmd)
+	// fmt.Println("cmd: ", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return out, err
