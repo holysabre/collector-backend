@@ -129,11 +129,24 @@ func (sc *SystemCollector) collectDisk() {
 	}
 	percentage := used / total * 100
 
+	var float32_total float32
+	if total > 0 {
+		float32_total = float32(total / 1024 / 1024)
+	} else {
+		float32_total = float32(total)
+	}
+	var float32_used float32
+	if total > 0 {
+		float32_used = float32(used / 1024 / 1024)
+	} else {
+		float32_used = float32(used)
+	}
+
 	disksParame := model_system.Parame{
 		Key: "disk",
 		Value: map[string]interface{}{
-			"total":      float32(total / 1024 / 1024),
-			"used":       float32(used / 1024 / 1024),
+			"total":      float32_total,
+			"used":       float32_used,
 			"percentage": float32(percentage),
 		},
 	}
