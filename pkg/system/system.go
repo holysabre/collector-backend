@@ -127,7 +127,6 @@ func (sc *SystemCollector) collectDisk() {
 		total += usage.Total
 		used += usage.Used
 	}
-	percentage := used / total * 100
 
 	var float32_total float32
 	if total > 0 {
@@ -142,12 +141,17 @@ func (sc *SystemCollector) collectDisk() {
 		float32_used = float32(used)
 	}
 
+	var percentage float32
+	if used > 0 && total > 0 {
+		percentage = float32(used / total * 100)
+	}
+
 	disksParame := model_system.Parame{
 		Key: "disk",
 		Value: map[string]interface{}{
 			"total":      float32_total,
 			"used":       float32_used,
-			"percentage": float32(percentage),
+			"percentage": percentage,
 		},
 	}
 	sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, disksParame)
