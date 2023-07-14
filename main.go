@@ -6,6 +6,7 @@ import (
 	"collector-agent/pkg/rabbitmq"
 	"collector-agent/util"
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -20,7 +21,7 @@ func run() {
 	// 访问环境变量
 	amqpUsername := os.Getenv("RABBITMQ_USERNAME")
 	amqpPassowd := os.Getenv("RABBITMQ_PASSWORD")
-	// amqpUrl := os.Getenv("RABBITMQ_URL")
+	fmt.Println(amqpUsername, amqpPassowd)
 
 	client := db.GetRedisConnection()
 	amqpUrl, err := client.Get(context.Background(), "RabbitmqUrl").Result()
@@ -35,12 +36,22 @@ func run() {
 	} else if err != nil {
 		log.Fatal(err)
 	}
+	SSLCaCrtPem, _ := client.Get(context.Background(), "SSLCaCrtPem").Result()
+	SSLClientCrtPem, _ := client.Get(context.Background(), "SSLClientCrtPem").Result()
+	SSLClientKeyPem, _ := client.Get(context.Background(), "SSLClientKeyPem").Result()
 
-	url := "amqp://" + amqpUsername + ":" + amqpPassowd + "@" + amqpUrl
+	// url := "amqp://" + amqpUsername + ":" + amqpPassowd + "@" + amqpUrl
+	url := "amqps://" + amqpUsername + ":" + amqpPassowd + "@" + amqpUrl + ":5671"
 	log.Println("amqp url: ", url)
 
-	config := rabbitmq.Config{Url: url}
-	conn, err := rabbitmq.NewConnection(config)
+	config := rabbitmq.Config{
+		Url:             url,
+		SSLCACrtPem:     SSLCaCrtPem,
+		SSLClientCrtPem: SSLClientCrtPem,
+		SSLClientKeyPem: SSLClientKeyPem,
+	}
+	// conn, err := rabbitmq.NewConnection(config)
+	conn, err := rabbitmq.NewConnectionWithTLS(config)
 	util.LogIfErr(err)
 	defer conn.Conn.Close()
 

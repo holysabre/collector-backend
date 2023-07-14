@@ -10,6 +10,8 @@ import (
 	"collector-agent/pkg/server"
 	"collector-agent/pkg/system"
 	"collector-agent/util"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -32,12 +34,46 @@ type Connection struct {
 	Conn   *amqp.Connection
 }
 type Config struct {
-	Url string
+	Url             string
+	SSLCACrtPem     string
+	SSLClientCrtPem string
+	SSLClientKeyPem string
 }
 
 func NewConnection(config Config) (Connection, error) {
 	conn := Connection{}
 	amqpConn, err := amqp.Dial(config.Url)
+	util.FailOnError(err, "Failed to connect to RabbitMQ")
+	conn.Conn = amqpConn
+	return conn, nil
+}
+
+func NewConnectionWithTLS(config Config) (Connection, error) {
+
+	fmt.Println(config.SSLClientCrtPem, config.SSLClientKeyPem, config.SSLCACrtPem)
+
+	// cert, err := tls.LoadX509KeyPair(config.SSLClientCrtPem, config.SSLClientKeyPem)
+	cert, err := tls.X509KeyPair([]byte(config.SSLClientCrtPem), []byte(config.SSLClientKeyPem))
+	if err != nil {
+		log.Fatalf("Failed to load X509 key pair: %v", err)
+	}
+
+	// caCert, err := ioutil.ReadFile(config.SSLCACrtPem)
+	// if err != nil {
+	// 	log.Fatalf("Failed to read CA certificate: %v", err)
+	// }
+
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM([]byte(config.SSLCACrtPem))
+
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            caCertPool,
+	}
+
+	conn := Connection{}
+	amqpConn, err := amqp.DialTLS(config.Url, tlsConfig)
 	util.FailOnError(err, "Failed to connect to RabbitMQ")
 	conn.Conn = amqpConn
 	return conn, nil
@@ -105,12 +141,13 @@ func (ctrl *Controller) ListenQueue() {
 		if len(splited) < 2 {
 			return
 		}
-		fmt.Println(string(splited[0]), splited[1])
+		fmt.Println(string(splited[0]))
 		decodedBytes, err := base64.StdEncoding.DecodeString(string(splited[1]))
 		if err != nil {
 			fmt.Printf("Unable to decode base64 data: %v", err)
 			return
 		}
+		fmt.Println(string(decodedBytes))
 		// decryptedBody, err := crypt_util.New().DecryptViaPub(decodedBytes)
 		// if err != nil {
 		// 	fmt.Printf("Unable to decrypt data: %v", err)
