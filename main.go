@@ -41,7 +41,7 @@ func run() {
 	SSLClientKeyPem, _ := client.Get(context.Background(), "SSLClientKeyPem").Result()
 
 	// url := "amqp://" + amqpUsername + ":" + amqpPassowd + "@" + amqpUrl
-	url := "amqps://" + amqpUsername + ":" + amqpPassowd + "@" + amqpUrl + ":5671"
+	url := "amqps://guest:guest@" + amqpUrl + ":5671"
 	log.Println("amqp url: ", url)
 
 	config := rabbitmq.Config{
