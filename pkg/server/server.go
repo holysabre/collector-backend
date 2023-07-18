@@ -55,7 +55,7 @@ func (sc *ServerCollector) getPower() (string, error) {
 	if err != nil {
 		return status, err
 	}
-	fmt.Println(string(out))
+	// fmt.Println(string(out))
 
 	pattern := `Chassis Power is (on|off)`
 	reg := regexp.MustCompile(pattern)
