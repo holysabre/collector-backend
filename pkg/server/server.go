@@ -86,7 +86,7 @@ func (sc *ServerCollector) PowerReading() (int, error) {
 	matches := reg.FindStringSubmatch(string(out))
 	if len(matches) > 1 {
 		power, _ := strconv.Atoi(matches[1])
-		fmt.Printf("server #%d power reading: %d \n", sc.Server.ID, power)
+		// fmt.Printf("server #%d power reading: %d \n", sc.Server.ID, power)
 		return power, nil
 	}
 
