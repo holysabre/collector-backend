@@ -34,7 +34,7 @@ func (sc *SystemCollector) Collect() {
 	sc.collectNet()
 	sc.SystemInfo.Time = time.Now()
 
-	fmt.Println("collect done \n", sc.SystemInfo)
+	// fmt.Println("collect done \n", sc.SystemInfo)
 }
 
 func (sc *SystemCollector) collectIOStat() {

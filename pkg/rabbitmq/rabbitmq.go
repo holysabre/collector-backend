@@ -50,7 +50,7 @@ func NewConnection(config Config) (Connection, error) {
 
 func NewConnectionWithTLS(config Config) (Connection, error) {
 
-	fmt.Println(config.SSLClientCrtPem, config.SSLClientKeyPem, config.SSLCACrtPem)
+	// fmt.Println(config.SSLClientCrtPem, config.SSLClientKeyPem, config.SSLCACrtPem)
 
 	// cert, err := tls.LoadX509KeyPair(config.SSLClientCrtPem, config.SSLClientKeyPem)
 	cert, err := tls.X509KeyPair([]byte(config.SSLClientCrtPem), []byte(config.SSLClientKeyPem))
@@ -141,13 +141,11 @@ func (ctrl *Controller) ListenQueue() {
 		if len(splited) < 2 {
 			return
 		}
-		fmt.Println(string(splited[0]))
 		decodedBytes, err := base64.StdEncoding.DecodeString(string(splited[1]))
 		if err != nil {
 			fmt.Printf("Unable to decode base64 data: %v", err)
 			return
 		}
-		fmt.Println(string(decodedBytes))
 		// decryptedBody, err := crypt_util.New().DecryptViaPub(decodedBytes)
 		// if err != nil {
 		// 	fmt.Printf("Unable to decrypt data: %v", err)
@@ -175,7 +173,7 @@ func (ctrl *Controller) ListenQueue() {
 }
 
 func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
-	log.Println("Type: ", msg.Type)
+	// log.Println("Type: ", msg.Type)
 	body := []byte(msg.Data)
 	switch msg.Type {
 	case "switch":
@@ -266,6 +264,6 @@ func (ctrl *Controller) publishMsg(ch *amqp.Channel, q amqp.Queue, msg model_msg
 		return err
 	}
 
-	fmt.Println("Msg Published")
+	// fmt.Println("Msg Published")
 	return nil
 }
