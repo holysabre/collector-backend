@@ -6,9 +6,7 @@ import (
 	"collector-agent/pkg/rabbitmq"
 	"collector-agent/util"
 	"context"
-	"fmt"
 	"log"
-	"os"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -18,11 +16,6 @@ func main() {
 }
 
 func run() {
-	// 访问环境变量
-	amqpUsername := os.Getenv("RABBITMQ_USERNAME")
-	amqpPassowd := os.Getenv("RABBITMQ_PASSWORD")
-	fmt.Println(amqpUsername, amqpPassowd)
-
 	client := db.GetRedisConnection()
 	amqpUrl, err := client.Get(context.Background(), "RabbitmqUrl").Result()
 	if err == redis.Nil {
@@ -40,7 +33,6 @@ func run() {
 	SSLClientCrtPem, _ := client.Get(context.Background(), "SSLClientCrtPem").Result()
 	SSLClientKeyPem, _ := client.Get(context.Background(), "SSLClientKeyPem").Result()
 
-	// url := "amqp://" + amqpUsername + ":" + amqpPassowd + "@" + amqpUrl
 	url := "amqps://guest:guest@" + amqpUrl + ":5671/"
 	log.Println("amqp url: ", url)
 
