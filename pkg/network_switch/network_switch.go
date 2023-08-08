@@ -59,7 +59,7 @@ func (nsc *NSCollector) Collect() error {
 		}
 		nsc.WalkAllByOid(oid)
 	}
-	fmt.Printf("ns %d collect oids finished\n", nsc.NetworkSwitch.ID)
+	fmt.Printf("%v ns %d collect oids finished\n", time.Now().Format("2006-01-02 15:04:05"), nsc.NetworkSwitch.ID)
 
 	for index, sp := range nsc.NetworkSwitch.Ports {
 		spc := switch_port.NewSPCollector(nsc.Connection, &sp, nsc.NetworkSwitch.PortOids)
