@@ -30,7 +30,7 @@ func NewServerCollector(s *model_server.Server) *ServerCollector {
 }
 
 func (sc *ServerCollector) Collect() {
-	fmt.Printf("collect #%d start \n", sc.Server.ID)
+	// fmt.Printf("collect #%d start \n", sc.Server.ID)
 	status, err := sc.getPower()
 	if err != nil {
 		fmt.Printf("server #%d get power failed, err: %v \n", sc.Server.ID, err.Error())
@@ -64,7 +64,7 @@ func (sc *ServerCollector) getPower() (string, error) {
 		return status, err
 	}
 	status = matches[1]
-	fmt.Printf("server #%d power status: %s \n", sc.Server.ID, status)
+	// fmt.Printf("server #%d power status: %s \n", sc.Server.ID, status)
 
 	sc.Server.Time = time.Now()
 
