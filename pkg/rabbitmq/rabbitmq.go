@@ -84,6 +84,8 @@ type Controller struct {
 	Channel      *amqp.Channel
 	Queue        amqp.Queue
 	Pool         gopool.Pool
+	ServerPool   gopool.Pool
+	NSPool       gopool.Pool
 	RetryChannel *amqp.Channel
 	RetryQueue   amqp.Queue
 	ReturnChann  *chan model_msg.Msg
@@ -96,6 +98,8 @@ func NewCtrl(poolName string, returnChan *chan model_msg.Msg) *Controller {
 	fmt.Printf("Number of CPU cores: %d, poolCap: %d\n", numCPU, poolCap)
 	return &Controller{
 		Pool:        gopool.NewPool(poolName, poolCap, gopool.NewConfig()),
+		ServerPool:  gopool.NewPool(poolName+"-server", poolCap, gopool.NewConfig()),
+		NSPool:      gopool.NewPool(poolName+"-ns", poolCap, gopool.NewConfig()),
 		ReturnChann: returnChan,
 	}
 }
@@ -170,9 +174,7 @@ func (ctrl *Controller) ListenQueue() {
 				return
 			}
 		}
-		ctrl.Pool.Go(func() {
-			ctrl.handleCollect(msg)
-		})
+		ctrl.handleCollect(msg)
 	}
 }
 
@@ -181,51 +183,57 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 	body := []byte(msg.Data)
 	switch msg.Type {
 	case "switch":
-		var ns model_ns.NetworkSwitch
-		err := json.Unmarshal(body, &ns)
-		if err != nil {
-			fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
-			return
-		}
-		nsc := network_switch.NewNSCollector(&ns)
-		nsc.Collect()
-		jsonData, err := json.Marshal(nsc.NetworkSwitch)
-		if err != nil {
-			fmt.Printf("无法编码为JSON格式: %v", err)
-		}
-		returnMsg := model_msg.Msg{Type: "switch", Time: time.Now().Unix(), Data: string(jsonData)}
-		*ctrl.ReturnChann <- returnMsg
+		ctrl.NSPool.Go(func() {
+			var ns model_ns.NetworkSwitch
+			err := json.Unmarshal(body, &ns)
+			if err != nil {
+				fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
+				return
+			}
+			nsc := network_switch.NewNSCollector(&ns)
+			nsc.Collect()
+			jsonData, err := json.Marshal(nsc.NetworkSwitch)
+			if err != nil {
+				fmt.Printf("无法编码为JSON格式: %v", err)
+			}
+			returnMsg := model_msg.Msg{Type: "switch", Time: time.Now().Unix(), Data: string(jsonData)}
+			*ctrl.ReturnChann <- returnMsg
+		})
 	case "server":
-		var s model_server.Server
-		err := json.Unmarshal(body, &s)
-		if err != nil {
-			fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
-			return
-		}
-		sc := server.NewServerCollector(&s)
-		sc.Collect()
-		// fmt.Println(sc.Server)
-		jsonData, err := json.Marshal(sc.Server)
-		if err != nil {
-			fmt.Printf("无法编码为JSON格式: %v", err)
-		}
-		returnMsg := model_msg.Msg{Type: "server", Time: time.Now().Unix(), Data: string(jsonData)}
-		*ctrl.ReturnChann <- returnMsg
+		ctrl.ServerPool.Go(func() {
+			var s model_server.Server
+			err := json.Unmarshal(body, &s)
+			if err != nil {
+				fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
+				return
+			}
+			sc := server.NewServerCollector(&s)
+			sc.Collect()
+			// fmt.Println(sc.Server)
+			jsonData, err := json.Marshal(sc.Server)
+			if err != nil {
+				fmt.Printf("无法编码为JSON格式: %v", err)
+			}
+			returnMsg := model_msg.Msg{Type: "server", Time: time.Now().Unix(), Data: string(jsonData)}
+			*ctrl.ReturnChann <- returnMsg
+		})
 	case "system":
-		var s model_system.SystemInfo
-		err := json.Unmarshal(body, &s)
-		if err != nil {
-			fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
-			return
-		}
-		sc := system.NewSystemCollector(&s)
-		sc.Collect()
-		jsonData, err := json.Marshal(sc.SystemInfo)
-		if err != nil {
-			fmt.Printf("无法编码为JSON格式: %v", err)
-		}
-		returnMsg := model_msg.Msg{Type: "system", Time: time.Now().Unix(), Data: string(jsonData)}
-		*ctrl.ReturnChann <- returnMsg
+		ctrl.Pool.Go(func() {
+			var s model_system.SystemInfo
+			err := json.Unmarshal(body, &s)
+			if err != nil {
+				fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
+				return
+			}
+			sc := system.NewSystemCollector(&s)
+			sc.Collect()
+			jsonData, err := json.Marshal(sc.SystemInfo)
+			if err != nil {
+				fmt.Printf("无法编码为JSON格式: %v", err)
+			}
+			returnMsg := model_msg.Msg{Type: "system", Time: time.Now().Unix(), Data: string(jsonData)}
+			*ctrl.ReturnChann <- returnMsg
+		})
 	}
 }
 
