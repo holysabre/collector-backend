@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	PoolCap                int32 = 100
+	PoolCap                int32 = 10
 	max_try_times          int8  = 5
 	default_coroutine_nums int   = 10
 	max_coroutine_nums     int   = 30
