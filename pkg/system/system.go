@@ -28,6 +28,7 @@ func NewSystemCollector(s *model_system.SystemInfo) *SystemCollector {
 }
 
 func (sc *SystemCollector) Collect() {
+	time.Sleep(10 * time.Second)
 	sc.collectIOStat()
 	sc.collectRam()
 	sc.collectDisk()
