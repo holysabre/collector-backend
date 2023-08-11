@@ -1,10 +1,13 @@
 package server
 
 import (
+	"collector-agent/db"
 	"collector-agent/util"
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"math/rand"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -13,9 +16,17 @@ import (
 
 	model_ipmi "collector-agent/models/ipmi"
 	model_server "collector-agent/models/server"
+
+	"github.com/go-redis/redis/v8"
 )
 
-const CmdTimeout = 5 * time.Second
+const (
+	CmdTimeout                  = 5 * time.Second
+	BlacklistPrefix             = "server-blacklist:server#"
+	BlacklistBaseEXMintues      = 10
+	BlacklistBaseEXFloatMintues = 5
+	RetryMaxTimes               = 5
+)
 
 type ServerCollector struct {
 	Connection model_ipmi.Connection
@@ -31,18 +42,45 @@ func NewServerCollector(s *model_server.Server) *ServerCollector {
 
 func (sc *ServerCollector) Collect() {
 	// fmt.Printf("collect #%d start \n", sc.Server.ID)
-	status, err := sc.getPower()
-	if err != nil {
-		fmt.Printf("server #%d get power failed, err: %v \n", sc.Server.ID, err.Error())
-	} else {
-		sc.Server.PowerStatus = status
+
+	if sc.checkInBlacklist() {
+		log.Printf("server#%d is in blacklist, skip get power\n", sc.Server.ID)
+		return
 	}
 
-	power, err := sc.PowerReading()
-	if err != nil {
-		fmt.Printf("server #%d get power reading failed, err: %v \n", sc.Server.ID, err.Error())
-	} else {
-		sc.Server.PowerReading = power
+	try_times := 0
+	for {
+		if try_times > RetryMaxTimes {
+			sc.pushToBlacklist()
+			break
+		}
+		status, err := sc.getPower()
+		if err != nil {
+			fmt.Printf("server #%d get power failed, err: %v \n", sc.Server.ID, err.Error())
+			try_times++
+		} else {
+			sc.Server.PowerStatus = status
+		}
+	}
+
+	if sc.checkInBlacklist() {
+		log.Printf("server#%d is in blacklist, skip get power reading \n", sc.Server.ID)
+		return
+	}
+
+	try_times = 0
+	for {
+		if try_times > RetryMaxTimes {
+			sc.pushToBlacklist()
+			break
+		}
+		power, err := sc.PowerReading()
+		if err != nil {
+			fmt.Printf("server #%d get power reading failed, err: %v \n", sc.Server.ID, err.Error())
+			try_times++
+		} else {
+			sc.Server.PowerReading = power
+		}
 	}
 
 	// fmt.Println("collect done")
@@ -125,4 +163,56 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 		return out, err
 	}
 	return out, nil
+}
+
+func (sc *ServerCollector) pushToBlacklist() {
+	redisConn := db.NewRedisReadConnection()
+	client := redisConn.GetClient()
+
+	err := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime())
+
+	if err != nil {
+		log.Println(err.String())
+	}
+	redisConn.CloseClient(client)
+}
+
+func (sc *ServerCollector) checkInBlacklist() bool {
+	redisConn := db.NewRedisReadConnection()
+	client := redisConn.GetClient()
+
+	isExists, err := client.Exists(context.Background(), sc.getCacheKey()).Result()
+	if err == redis.Nil {
+		redisConn.CloseClient(client)
+		log.Fatal("Public key not found")
+	} else if err != nil {
+		redisConn.CloseClient(client)
+		log.Fatal(err)
+	}
+
+	redisConn.CloseClient(client)
+
+	return isExists > 0
+}
+
+func (sc *ServerCollector) getCacheKey() string {
+	return BlacklistPrefix + strconv.Itoa(int(sc.Server.ID))
+}
+
+func (sc *ServerCollector) getRandomCacheTime() time.Duration {
+
+	base := BlacklistBaseEXMintues * 60
+	floatNum := BlacklistBaseEXFloatMintues * 60
+	min := base - floatNum
+	max := base + floatNum
+
+	randomNumber := rand.Intn(max-min+1) + min
+
+	fmt.Printf("randomNumber: %v\n", randomNumber)
+
+	randomDuration := time.Duration(randomNumber) * time.Second
+
+	fmt.Printf("randomDuration: %v\n", randomNumber)
+
+	return randomDuration
 }

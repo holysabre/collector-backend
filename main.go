@@ -16,7 +16,8 @@ func main() {
 }
 
 func run() {
-	client := db.GetRedisConnection()
+	redisConn := db.NewRedisReadConnection()
+	client := redisConn.GetClient()
 	amqpUrl, err := client.Get(context.Background(), "RabbitmqUrl").Result()
 	if err == redis.Nil {
 		log.Fatal("RabbitmqUrl not found")
@@ -32,6 +33,8 @@ func run() {
 	SSLCaCrtPem, _ := client.Get(context.Background(), "SSLCaCrtPem").Result()
 	SSLClientCrtPem, _ := client.Get(context.Background(), "SSLClientCrtPem").Result()
 	SSLClientKeyPem, _ := client.Get(context.Background(), "SSLClientKeyPem").Result()
+
+	redisConn.CloseClient(client)
 
 	url := "amqps://guest:guest@" + amqpUrl + ":5671/"
 	log.Println("amqp url: ", url)

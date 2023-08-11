@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"runtime"
 	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -23,10 +24,10 @@ import (
 )
 
 const (
-	PoolCap                int32 = 10
-	max_try_times          int8  = 5
-	default_coroutine_nums int   = 10
-	max_coroutine_nums     int   = 30
+	PoolCapPreCoreNum      int  = 4
+	max_try_times          int8 = 5
+	default_coroutine_nums int  = 10
+	max_coroutine_nums     int  = 30
 )
 
 type Connection struct {
@@ -90,8 +91,11 @@ type Controller struct {
 }
 
 func NewCtrl(poolName string, returnChan *chan model_msg.Msg) *Controller {
+	numCPU := runtime.NumCPU()
+	poolCap := int32(PoolCapPreCoreNum * numCPU)
+	fmt.Printf("Number of CPU cores: %d, poolCap: %d\n", numCPU, poolCap)
 	return &Controller{
-		Pool:        gopool.NewPool(poolName, PoolCap, gopool.NewConfig()),
+		Pool:        gopool.NewPool(poolName, poolCap, gopool.NewConfig()),
 		ReturnChann: returnChan,
 	}
 }
