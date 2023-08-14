@@ -52,9 +52,11 @@ func (sc *SystemCollector) collectIOStat() {
 		firstHost := iostat.Sysstat.Hosts[0]
 		if len(firstHost.Statistics) > 0 {
 			currentStatistic := firstHost.Statistics[0]
+			percentage := 100 - currentStatistic.AvgCpu.Idel
+			percentage = float32(util.RoundFloat(float64(percentage), 0))
 			cpuParame := model_system.Parame{
 				Key:   "cpu",
-				Value: map[string]interface{}{"percentage": 100 - currentStatistic.AvgCpu.Idel},
+				Value: map[string]interface{}{"percentage": percentage},
 			}
 			sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, cpuParame)
 
@@ -88,7 +90,7 @@ func (sc *SystemCollector) collectRam() {
 		Value: map[string]interface{}{
 			"total":      float32(vm.Total / 1024 / 1024),
 			"used":       float32(vm.Used / 1024 / 1024),
-			"percentage": float32(vm.UsedPercent),
+			"percentage": float32(util.RoundFloat(vm.UsedPercent, 0)),
 		},
 	}
 	sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, disksParame)
