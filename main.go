@@ -30,6 +30,7 @@ func run() {
 	} else if err != nil {
 		log.Fatal(err)
 	}
+	datacenterID, _ := client.Get(context.Background(), "DatacenterID").Result()
 	SSLCaCrtPem, _ := client.Get(context.Background(), "SSLCaCrtPem").Result()
 	SSLClientCrtPem, _ := client.Get(context.Background(), "SSLClientCrtPem").Result()
 	SSLClientKeyPem, _ := client.Get(context.Background(), "SSLClientKeyPem").Result()
@@ -52,19 +53,19 @@ func run() {
 
 	returnChan := make(chan msg.Msg, 1000)
 
-	mainName := "collector-main"
+	mainName := "collector-main-" + datacenterID
 	mainCtrl := rabbitmq.NewCtrl(mainName, &returnChan)
 	mainCtrl.SlaveID = slaveID
 	mainCtrl.SetupChannelAndQueue(mainName, conn.Conn)
 	defer mainCtrl.Channel.Close()
 
-	retryName := "collector-retry"
+	retryName := "collector-retry-" + datacenterID
 	retryCtrl := rabbitmq.NewCtrl(retryName, &returnChan)
 	retryCtrl.SlaveID = slaveID
 	retryCtrl.SetupChannelAndQueue(retryName, conn.Conn)
 	defer retryCtrl.Channel.Close()
 
-	returnName := "collector-return"
+	returnName := "collector-return-" + datacenterID
 	returnCtrl := rabbitmq.NewCtrl(returnName, &returnChan)
 	retryCtrl.SlaveID = slaveID
 	returnCtrl.SetupChannelAndQueue(returnName, conn.Conn)
