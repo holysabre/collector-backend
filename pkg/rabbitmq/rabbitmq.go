@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	PoolCapPreCoreNum      int  = 1
+	PoolCapPreCoreNum      int  = 2
 	max_try_times          int8 = 3
 	default_coroutine_nums int  = 10
 	max_coroutine_nums     int  = 30
