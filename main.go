@@ -65,7 +65,7 @@ func run() {
 	retryCtrl.SetupChannelAndQueue(retryName, conn.Conn)
 	defer retryCtrl.Channel.Close()
 
-	returnName := "collector-return-" + datacenterID
+	returnName := "collector-return"
 	returnCtrl := rabbitmq.NewCtrl(returnName, &returnChan)
 	retryCtrl.SlaveID = slaveID
 	returnCtrl.SetupChannelAndQueue(returnName, conn.Conn)
