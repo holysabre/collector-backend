@@ -30,7 +30,12 @@ func run() {
 	} else if err != nil {
 		log.Fatal(err)
 	}
-	datacenterID, _ := client.Get(context.Background(), "DatacenterID").Result()
+	datacenterID, err := client.Get(context.Background(), "DatacenterID").Result()
+	if err == redis.Nil {
+		log.Fatal("DatacenterID not found")
+	} else if err != nil {
+		log.Fatal(err)
+	}
 	SSLCaCrtPem, _ := client.Get(context.Background(), "SSLCaCrtPem").Result()
 	SSLClientCrtPem, _ := client.Get(context.Background(), "SSLClientCrtPem").Result()
 	SSLClientKeyPem, _ := client.Get(context.Background(), "SSLClientKeyPem").Result()
