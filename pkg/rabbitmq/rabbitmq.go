@@ -136,8 +136,8 @@ func (ctrl *Controller) ListenQueue() {
 		ctrl.Queue.Name, // 队列名称
 		consumeTag,      // 消费者标签
 		true,            // 是否自动回复
-		true,            // 是否独占
-		true,            // 是否阻塞等待
+		false,           // 是否独占
+		false,           // 是否阻塞等待
 		false,           // 额外的属性
 		nil,             // 消费者取消回调函数
 	)
