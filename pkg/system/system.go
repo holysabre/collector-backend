@@ -52,10 +52,9 @@ func (sc *SystemCollector) collectIOStat() {
 		firstHost := iostat.Sysstat.Hosts[0]
 		if len(firstHost.Statistics) > 0 {
 			currentStatistic := firstHost.Statistics[0]
-			percentage := fmt.Sprintf("%.2f", 100-currentStatistic.AvgCpu.Idel)
 			cpuParame := model_system.Parame{
 				Key:   "cpu",
-				Value: map[string]interface{}{"percentage": percentage},
+				Value: map[string]interface{}{"percentage": 100 - currentStatistic.AvgCpu.Idel},
 			}
 			sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, cpuParame)
 
