@@ -39,7 +39,7 @@ func (sc *SystemCollector) Collect() {
 }
 
 func (sc *SystemCollector) collectIOStat() {
-	args := []string{"-x", "-o", "JSON", "5", "2"}
+	args := []string{"-x", "-o", "JSON", "1", "2"}
 	out, err := sc.run("iostat", args)
 	util.LogIfErr(err)
 
@@ -52,10 +52,10 @@ func (sc *SystemCollector) collectIOStat() {
 		firstHost := iostat.Sysstat.Hosts[0]
 		if len(firstHost.Statistics) > 0 {
 			currentStatistic := firstHost.Statistics[0]
-
+			percentage := fmt.Sprintf("%.2f", 100-currentStatistic.AvgCpu.Idel)
 			cpuParame := model_system.Parame{
 				Key:   "cpu",
-				Value: map[string]interface{}{"percentage": 100 - currentStatistic.AvgCpu.Idel},
+				Value: map[string]interface{}{"percentage": percentage},
 			}
 			sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, cpuParame)
 
