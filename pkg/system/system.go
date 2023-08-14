@@ -84,7 +84,7 @@ func (sc *SystemCollector) collectRam() {
 	}
 
 	disksParame := model_system.Parame{
-		Key: "disks",
+		Key: "ram",
 		Value: map[string]interface{}{
 			"total":      float32(vm.Total / 1024 / 1024),
 			"used":       float32(vm.Used / 1024 / 1024),
