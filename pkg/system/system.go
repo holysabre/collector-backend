@@ -67,7 +67,7 @@ func (sc *SystemCollector) collectIOStat() {
 				disks[d.DiskDevice] = disk
 			}
 			disksParame := model_system.Parame{
-				Key:   "disks",
+				Key:   "io",
 				Value: disks,
 			}
 			sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, disksParame)
