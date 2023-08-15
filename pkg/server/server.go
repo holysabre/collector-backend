@@ -94,9 +94,9 @@ func (sc *ServerCollector) getPower() (string, error) {
 	args := []string{"power", "status"}
 	out, err := sc.run("ipmitool", args)
 	if err != nil {
+		logger.Println(string(out))
 		return status, err
 	}
-	// fmt.Println(string(out))
 
 	pattern := `Chassis Power is (on|off)`
 	reg := regexp.MustCompile(pattern)
@@ -119,6 +119,7 @@ func (sc *ServerCollector) PowerReading() (int, error) {
 	var err error
 	out, err = sc.run("ipmitool", args)
 	if err != nil {
+		logger.Println(string(out))
 		return 0, err
 	}
 
