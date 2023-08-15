@@ -3,10 +3,9 @@ package network_switch
 import (
 	model_ns "collector-agent/models/network_switch"
 	model_snmp "collector-agent/models/snmp"
+	"collector-agent/pkg/logger"
 	"collector-agent/pkg/switch_port"
 	"collector-agent/util"
-	"fmt"
-	"log"
 	"math/big"
 	"time"
 
@@ -36,7 +35,7 @@ func NewNSCollector(ns *model_ns.NetworkSwitch) *NSCollector {
 func (nsc *NSCollector) Collect() error {
 	err := nsc.Connection.Connect()
 	if err != nil {
-		fmt.Printf("无法建立 SNMP 连接：%v", err)
+		logger.Printf("ns #%d Unable To Connect ns Via SNMP: %v \n", nsc.NetworkSwitch.ID, err.Error())
 		return err
 	}
 	defer nsc.Connection.Conn.Close()
@@ -44,12 +43,12 @@ func (nsc *NSCollector) Collect() error {
 	// 获取设备信息
 	resp, err := nsc.Connection.Get([]string{".1.3.6.1.2.1.1.1.0", ".1.3.6.1.2.1.1.6.0"})
 	if err != nil {
-		log.Printf("ns %d SNMP 请求错误：%v", nsc.NetworkSwitch.ID, err)
+		logger.Printf("ns #%d SNMP request err: %v \n", nsc.NetworkSwitch.ID, err.Error())
 		return err
 	}
 
 	if resp.Error != g.NoError {
-		log.Printf("SNMP 响应错误：%v", resp.Error)
+		logger.Printf("ns #%d SNMP response err: %v\n", nsc.NetworkSwitch.ID, resp.Error)
 		return err
 	}
 
@@ -59,7 +58,7 @@ func (nsc *NSCollector) Collect() error {
 		}
 		nsc.WalkAllByOid(oid)
 	}
-	fmt.Printf("%v ns %d collect oids finished\n", time.Now().Format("2006-01-02 15:04:05"), nsc.NetworkSwitch.ID)
+	logger.Printf("ns %d collect oids finished\n", nsc.NetworkSwitch.ID)
 
 	for index, sp := range nsc.NetworkSwitch.Ports {
 		spc := switch_port.NewSPCollector(nsc.Connection, &sp, nsc.NetworkSwitch.PortOids)
@@ -67,7 +66,7 @@ func (nsc *NSCollector) Collect() error {
 		spc.GetByOids()
 		nsc.NetworkSwitch.Ports[index] = sp
 	}
-	fmt.Printf("ns %d collect ports oids finished\n", nsc.NetworkSwitch.ID)
+	logger.Printf("ns %d collect ports oids finished\n", nsc.NetworkSwitch.ID)
 
 	nsc.NetworkSwitch.Time = time.Now()
 

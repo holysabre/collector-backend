@@ -1,9 +1,8 @@
 package db
 
 import (
-	"collector-agent/util"
+	"collector-agent/pkg/logger"
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/go-redis/redis/v8"
@@ -32,14 +31,11 @@ func NewRedisReadConnection() *RedisReadConnection {
 		for i := 0; i < redisReadClientCap; i++ {
 			c := redis.NewClient(&options)
 
-			// 使用 Ping() 方法检查是否成功连接到 Redis
 			_, err := c.Ping(context.Background()).Result()
-			if err != nil {
-				util.FailOnError(err, "连接Redis失败")
-			}
+			logger.ExitIfErr(err, "Unable To Connect To Redis")
 			internalRedisReadClient.RedisReadClientChan <- c
 		}
-		fmt.Println("RedisReadClientChan len: ", len(internalRedisReadClient.RedisReadClientChan))
+		logger.Printf("RedisReadClientChan len: %d \n", len(internalRedisReadClient.RedisReadClientChan))
 	})
 
 	return internalRedisReadClient
@@ -62,9 +58,7 @@ func GetRedisConnection() *redis.Client {
 
 	// 使用 Ping() 方法检查是否成功连接到 Redis
 	_, err := client.Ping(context.Background()).Result()
-	if err != nil {
-		util.FailOnError(err, "连接Redis失败")
-	}
+	logger.ExitIfErr(err, "Unable To Connect To Redis")
 
 	return client
 }

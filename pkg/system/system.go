@@ -3,10 +3,10 @@ package system
 import (
 	"bytes"
 	model_system "collector-agent/models/system"
+	"collector-agent/pkg/logger"
 	"collector-agent/util"
 	"context"
 	"encoding/json"
-	"fmt"
 	"os/exec"
 	"time"
 
@@ -45,7 +45,7 @@ func (sc *SystemCollector) collectIOStat() {
 
 	var iostat model_system.IoStat
 	if err := json.Unmarshal([]byte(out), &iostat); err != nil {
-		fmt.Println("Failed to unmarshal JSON:", err)
+		logger.Println("Failed to unmarshal JSON")
 	}
 
 	if len(iostat.Sysstat.Hosts) > 0 {
@@ -81,8 +81,8 @@ func (sc *SystemCollector) collectIOStat() {
 func (sc *SystemCollector) collectRam() {
 	vm, err := mem.VirtualMemory()
 	if err != nil {
-		fmt.Println("Failed to get virtual memory info:", err)
-		panic(err)
+		logger.Printf("Failed to get virtual memory info, err: %v \n", err.Error())
+		return
 	}
 
 	disksParame := model_system.Parame{
@@ -99,7 +99,10 @@ func (sc *SystemCollector) collectRam() {
 func (sc *SystemCollector) collectDisk() {
 	args := []string{"-c", `mount | grep /app | grep -v iso | grep -v /app/run | awk '{print $3}'`}
 	out, err := sc.run("bash", args)
-	util.LogIfErr(err)
+	if err != nil {
+		logger.Printf("Failed to get disk info, err: %v \n", err.Error())
+		return
+	}
 
 	lines := bytes.Split(out, []byte{'\n'})
 	diskPath := map[string]map[string]interface{}{}
@@ -112,11 +115,9 @@ func (sc *SystemCollector) collectDisk() {
 		path := string(line)
 		usage, err := disk.Usage(path)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			logger.Printf("Error: %v\n", err.Error())
 			continue
 		}
-
-		fmt.Println(usage)
 
 		usageStat := map[string]interface{}{
 			"total":      usage.Total,
@@ -155,7 +156,7 @@ func (sc *SystemCollector) collectDisk() {
 func (sc *SystemCollector) collectNet() {
 	ioCountersStat, err := net.IOCounters(true)
 	if err != nil {
-		fmt.Println("获取网络接口信息失败:", err)
+		logger.Printf("Fail To Get Network Data %v: \n", err.Error())
 		return
 	}
 

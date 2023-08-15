@@ -3,10 +3,9 @@ package main
 import (
 	"collector-agent/db"
 	"collector-agent/models/msg"
+	"collector-agent/pkg/logger"
 	"collector-agent/pkg/rabbitmq"
-	"collector-agent/util"
 	"context"
-	"log"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -19,31 +18,32 @@ func run() {
 	redisConn := db.NewRedisReadConnection()
 	client := redisConn.GetClient()
 	amqpUrl, err := client.Get(context.Background(), "RabbitmqUrl").Result()
+	logger.ExitIfErr(err, "Fail To Get Data From Redis")
 	if err == redis.Nil {
-		log.Fatal("RabbitmqUrl not found")
-	} else if err != nil {
-		log.Fatal(err)
+		logger.Fatal("RabbitmqUrl not found")
 	}
 	slaveID, err := client.Get(context.Background(), "SlaveID").Result()
+	logger.ExitIfErr(err, "Fail To Get Data From Redis")
 	if err == redis.Nil {
-		log.Fatal("SlaveID not found")
-	} else if err != nil {
-		log.Fatal(err)
+		logger.Fatal("SlaveID not found")
 	}
 	datacenterID, err := client.Get(context.Background(), "DatacenterID").Result()
+	logger.ExitIfErr(err, "Fail To Get Data From Redis")
 	if err == redis.Nil {
-		log.Fatal("DatacenterID not found")
-	} else if err != nil {
-		log.Fatal(err)
+		logger.Fatal("DatacenterID not found")
 	}
-	SSLCaCrtPem, _ := client.Get(context.Background(), "SSLCaCrtPem").Result()
+	SSLCaCrtPem, err := client.Get(context.Background(), "SSLCaCrtPem").Result()
+	logger.ExitIfErr(err, "Fail To Get Data From Redis")
+	if err == redis.Nil {
+		logger.Fatal("SSLCaCrtPem not found")
+	}
 	SSLClientCrtPem, _ := client.Get(context.Background(), "SSLClientCrtPem").Result()
 	SSLClientKeyPem, _ := client.Get(context.Background(), "SSLClientKeyPem").Result()
 
 	redisConn.CloseClient(client)
 
 	url := "amqps://guest:guest@" + amqpUrl + ":5671/"
-	log.Println("amqp url: ", url)
+	logger.Printf("amqp url: %s", url)
 
 	config := rabbitmq.Config{
 		Url:             url,
@@ -53,7 +53,7 @@ func run() {
 	}
 	// conn, err := rabbitmq.NewConnection(config)
 	conn, err := rabbitmq.NewConnectionWithTLS(config)
-	util.LogIfErr(err)
+	logger.LogIfErr(err)
 	defer conn.Conn.Close()
 
 	returnChan := make(chan msg.Msg, 1000)

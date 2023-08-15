@@ -6,16 +6,14 @@ import (
 	model_ns "collector-agent/models/network_switch"
 	model_server "collector-agent/models/server"
 	model_system "collector-agent/models/system"
+	"collector-agent/pkg/logger"
 	"collector-agent/pkg/network_switch"
 	"collector-agent/pkg/server"
 	"collector-agent/pkg/system"
-	"collector-agent/util"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"log"
 	"runtime"
 	"time"
 
@@ -44,25 +42,14 @@ type Config struct {
 func NewConnection(config Config) (Connection, error) {
 	conn := Connection{}
 	amqpConn, err := amqp.Dial(config.Url)
-	util.FailOnError(err, "Failed to connect to RabbitMQ")
+	logger.ExitIfErr(err, "Failed to connect to RabbitMQ")
 	conn.Conn = amqpConn
 	return conn, nil
 }
 
 func NewConnectionWithTLS(config Config) (Connection, error) {
-
-	// fmt.Println(config.SSLClientCrtPem, config.SSLClientKeyPem, config.SSLCACrtPem)
-
-	// cert, err := tls.LoadX509KeyPair(config.SSLClientCrtPem, config.SSLClientKeyPem)
 	cert, err := tls.X509KeyPair([]byte(config.SSLClientCrtPem), []byte(config.SSLClientKeyPem))
-	if err != nil {
-		log.Fatalf("Failed to load X509 key pair: %v", err)
-	}
-
-	// caCert, err := ioutil.ReadFile(config.SSLCACrtPem)
-	// if err != nil {
-	// 	log.Fatalf("Failed to read CA certificate: %v", err)
-	// }
+	logger.ExitIfErr(err, "Failed to load X509 key pair")
 
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM([]byte(config.SSLCACrtPem))
@@ -75,7 +62,7 @@ func NewConnectionWithTLS(config Config) (Connection, error) {
 
 	conn := Connection{}
 	amqpConn, err := amqp.DialTLS(config.Url, tlsConfig)
-	util.FailOnError(err, "Failed to connect to RabbitMQ")
+	logger.ExitIfErr(err, "Failed to connect to RabbitMQ")
 	conn.Conn = amqpConn
 	return conn, nil
 }
@@ -95,7 +82,7 @@ type Controller struct {
 func NewCtrl(poolName string, returnChan *chan model_msg.Msg) *Controller {
 	numCPU := runtime.NumCPU()
 	poolCap := int32(PoolCapPreCoreNum * numCPU)
-	fmt.Printf("Number of CPU cores: %d, poolCap: %d\n", numCPU, poolCap)
+	logger.Printf("Number of CPU cores: %d, poolCap: %d\n", numCPU, poolCap)
 	return &Controller{
 		Pool:        gopool.NewPool(poolName, poolCap, gopool.NewConfig()),
 		ServerPool:  gopool.NewPool(poolName+"-server", poolCap, gopool.NewConfig()),
@@ -106,7 +93,7 @@ func NewCtrl(poolName string, returnChan *chan model_msg.Msg) *Controller {
 
 func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connection) error {
 	ch, err := amqpConn.Channel()
-	util.FailOnError(err, "Failed to open a channel")
+	logger.ExitIfErr(err, "Failed to open a channel")
 
 	q, err := ch.QueueDeclare(
 		name,  // 队列名称
@@ -116,12 +103,8 @@ func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connect
 		false, // 是否阻塞等待
 		nil,   // 额外的属性
 	)
-	util.FailOnError(err, "Failed to declare a queue")
-
-	// err = ch.QueueBind(name, "agent", "dcim-collector", false, nil)
-	// util.FailOnError(err, "Failed to bind queue")
-
-	log.Printf("%s channel & queue declared", name)
+	logger.ExitIfErr(err, "Failed to declare a queue")
+	logger.Printf("%s channel & queue declared", name)
 
 	ctrl.Channel = ch
 	ctrl.Queue = q
@@ -141,39 +124,34 @@ func (ctrl *Controller) ListenQueue() {
 		false,           // 额外的属性
 		nil,             // 消费者取消回调函数
 	)
-	util.FailOnError(err, "Failed to register a consumer")
+	logger.ExitIfErr(err, "Failed to register a consumer")
 
 	for d := range msgs {
 		var msg model_msg.Msg
 		splited := bytes.Split(d.Body, []byte{'|'})
 		if len(splited) < 2 {
-			return
+			continue
 		}
 		decodedBytes, err := base64.StdEncoding.DecodeString(string(splited[1]))
 		if err != nil {
-			fmt.Printf("Unable to decode base64 data: %v", err)
-			return
+			logger.Printf("Unable to decode base64 data: %v", err.Error())
+			continue
 		}
-		// decryptedBody, err := crypt_util.New().DecryptViaPub(decodedBytes)
-		// if err != nil {
-		// 	fmt.Printf("Unable to decrypt data: %v", err)
-		// 	return
-		// }
 		err = json.Unmarshal(decodedBytes, &msg)
 		if err != nil {
-			fmt.Printf("Unable to parse json data: %v", err)
-			return
+			logger.Printf("Unable to parse json data: %v", err.Error())
+			continue
 		}
-		if msg.TryTimes >= max_try_times {
-			fmt.Printf("%s try timeout", msg.Type)
-			return
-		}
-		msg.TryTimes++
-		if msg.Type == "" {
-			if err := ctrl.publishMsg(ctrl.RetryChannel, ctrl.RetryQueue, msg); err != nil {
-				return
-			}
-		}
+		// if msg.TryTimes >= max_try_times {
+		// 	logger.Printf("%s try timeout", msg.Type)
+		// 	continue
+		// }
+		// msg.TryTimes++
+		// if msg.Type == "" {
+		// 	if err := ctrl.publishMsg(ctrl.RetryChannel, ctrl.RetryQueue, msg); err != nil {
+		// 		continue
+		// 	}
+		// }
 		ctrl.handleCollect(msg)
 	}
 }
@@ -186,16 +164,11 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 		ctrl.NSPool.Go(func() {
 			var ns model_ns.NetworkSwitch
 			err := json.Unmarshal(body, &ns)
-			if err != nil {
-				fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
-				return
-			}
+			logger.LogIfErrWithMsg(err, "NetworkSwitch Unable To Parse JSON Data")
 			nsc := network_switch.NewNSCollector(&ns)
 			nsc.Collect()
 			jsonData, err := json.Marshal(nsc.NetworkSwitch)
-			if err != nil {
-				fmt.Printf("无法编码为JSON格式: %v", err)
-			}
+			logger.LogIfErrWithMsg(err, "Cannot Be Encoded In JSON Format")
 			returnMsg := model_msg.Msg{Type: "switch", Time: time.Now().Unix(), Data: string(jsonData)}
 			*ctrl.ReturnChann <- returnMsg
 		})
@@ -203,17 +176,11 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 		ctrl.ServerPool.Go(func() {
 			var s model_server.Server
 			err := json.Unmarshal(body, &s)
-			if err != nil {
-				fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
-				return
-			}
+			logger.LogIfErrWithMsg(err, "Server Unable To Parse JSON Data")
 			sc := server.NewServerCollector(&s)
 			sc.Collect()
-			// fmt.Println(sc.Server)
 			jsonData, err := json.Marshal(sc.Server)
-			if err != nil {
-				fmt.Printf("无法编码为JSON格式: %v", err)
-			}
+			logger.LogIfErrWithMsg(err, "Cannot Be Encoded In JSON Format")
 			returnMsg := model_msg.Msg{Type: "server", Time: time.Now().Unix(), Data: string(jsonData)}
 			*ctrl.ReturnChann <- returnMsg
 		})
@@ -221,16 +188,11 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 		ctrl.Pool.Go(func() {
 			var s model_system.SystemInfo
 			err := json.Unmarshal(body, &s)
-			if err != nil {
-				fmt.Printf("NetworkSwitch 无法解析JSON数据: %v", err)
-				return
-			}
+			logger.LogIfErrWithMsg(err, "Systen Unable To Parse JSON Data")
 			sc := system.NewSystemCollector(&s)
 			sc.Collect()
 			jsonData, err := json.Marshal(sc.SystemInfo)
-			if err != nil {
-				fmt.Printf("无法编码为JSON格式: %v", err)
-			}
+			logger.LogIfErrWithMsg(err, "Cannot Be Encoded In JSON Format")
 			returnMsg := model_msg.Msg{Type: "system", Time: time.Now().Unix(), Data: string(jsonData)}
 			*ctrl.ReturnChann <- returnMsg
 		})
@@ -244,8 +206,7 @@ func (ctrl *Controller) ListenReturnQueue() {
 			continue
 		}
 		if err := ctrl.publishMsg(ctrl.Channel, ctrl.Queue, <-*ctrl.ReturnChann); err != nil {
-			fmt.Println("Fail to publish, err: ", err)
-			break
+			return
 		}
 	}
 }
@@ -253,16 +214,10 @@ func (ctrl *Controller) ListenReturnQueue() {
 func (ctrl *Controller) publishMsg(ch *amqp.Channel, q amqp.Queue, msg model_msg.Msg) error {
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
-		fmt.Printf("Cannot be encoded in json format: %v", err)
-		return err
+		logger.Printf("Cannot be encoded in json format: %v", err.Error())
+		return nil
 	}
-	// encryptedMsg, err := crypt_util.New().EncryptViaPub(jsonData)
-	// if err != nil {
-	// 	fmt.Printf("Cannot encrypted data: %v", err)
-	// 	return err
-	// }
 	encodedMsg := base64.StdEncoding.EncodeToString(jsonData)
-	// 发布消息到队列
 	err = ch.Publish(
 		"",     // 交换机名称
 		q.Name, // 队列名称
@@ -273,10 +228,8 @@ func (ctrl *Controller) publishMsg(ch *amqp.Channel, q amqp.Queue, msg model_msg
 			Body:        []byte(encodedMsg),
 		},
 	)
-	if err != nil {
-		return err
-	}
+	logger.ExitIfErr(err, "Fail To Publish Msg")
 
-	// fmt.Println("Msg Published")
+	// logger.Println("Msg Published")
 	return nil
 }

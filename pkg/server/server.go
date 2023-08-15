@@ -2,11 +2,10 @@ package server
 
 import (
 	"collector-agent/db"
+	"collector-agent/pkg/logger"
 	"collector-agent/util"
 	"context"
 	"errors"
-	"fmt"
-	"log"
 	"math/rand"
 	"os/exec"
 	"regexp"
@@ -44,7 +43,7 @@ func (sc *ServerCollector) Collect() {
 	// fmt.Printf("collect #%d start \n", sc.Server.ID)
 
 	if sc.checkInBlacklist() {
-		log.Printf("server#%d is in blacklist, skip get power\n", sc.Server.ID)
+		logger.Printf("server#%d is in blacklist, skip get power\n", sc.Server.ID)
 		return
 	}
 
@@ -56,7 +55,7 @@ func (sc *ServerCollector) Collect() {
 		}
 		status, err := sc.getPower()
 		if err != nil {
-			fmt.Printf("server #%d get power failed, err: %v \n", sc.Server.ID, err.Error())
+			logger.Printf("server #%d get power failed, err: %v \n", sc.Server.ID, err.Error())
 			try_times++
 		} else {
 			sc.Server.PowerStatus = status
@@ -64,7 +63,7 @@ func (sc *ServerCollector) Collect() {
 	}
 
 	if sc.checkInBlacklist() {
-		log.Printf("server#%d is in blacklist, skip get power reading \n", sc.Server.ID)
+		logger.Printf("server#%d is in blacklist, skip get power reading \n", sc.Server.ID)
 		return
 	}
 
@@ -76,7 +75,7 @@ func (sc *ServerCollector) Collect() {
 		}
 		power, err := sc.PowerReading()
 		if err != nil {
-			fmt.Printf("server #%d get power reading failed, err: %v \n", sc.Server.ID, err.Error())
+			logger.Printf("server #%d get power reading failed, err: %v \n", sc.Server.ID, err.Error())
 			try_times++
 		} else {
 			sc.Server.PowerReading = power
@@ -129,7 +128,7 @@ func (sc *ServerCollector) PowerReading() (int, error) {
 	}
 
 	if strings.ContainsAny(string(out), "DCMI request failed") {
-		fmt.Println("run old ipmitool")
+		logger.Println("run old ipmitool")
 		oldArgs := []string{"sdr", "get", "Power"}
 		rootDir := util.GetBinDir()
 		oldCommand := rootDir + "/ipmitool"
@@ -157,7 +156,6 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 	args := []string{"-R", "2", "-H", sc.Connection.Hostname, "-U", sc.Connection.Username, "-P", sc.Connection.Password, "-I", "lanplus"}
 	args = append(args, appendArgs...)
 	cmd := exec.CommandContext(ctx, command, args...)
-	// fmt.Println("cmd: ", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return out, err
@@ -172,7 +170,7 @@ func (sc *ServerCollector) pushToBlacklist() {
 	err := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime())
 
 	if err != nil {
-		log.Println(err.String())
+		logger.Println(err.String())
 	}
 	redisConn.CloseClient(client)
 }
@@ -182,12 +180,13 @@ func (sc *ServerCollector) checkInBlacklist() bool {
 	client := redisConn.GetClient()
 
 	isExists, err := client.Exists(context.Background(), sc.getCacheKey()).Result()
+	if err != nil {
+		redisConn.CloseClient(client)
+		logger.Fatal("Unable To Connect Redis")
+	}
 	if err == redis.Nil {
 		redisConn.CloseClient(client)
-		log.Fatal("Public key not found")
-	} else if err != nil {
-		redisConn.CloseClient(client)
-		log.Fatal(err)
+		logger.Fatal("Public key not found")
 	}
 
 	redisConn.CloseClient(client)
@@ -200,19 +199,14 @@ func (sc *ServerCollector) getCacheKey() string {
 }
 
 func (sc *ServerCollector) getRandomCacheTime() time.Duration {
-
 	base := BlacklistBaseEXMintues * 60
 	floatNum := BlacklistBaseEXFloatMintues * 60
 	min := base - floatNum
 	max := base + floatNum
 
 	randomNumber := rand.Intn(max-min+1) + min
-
-	fmt.Printf("randomNumber: %v\n", randomNumber)
-
 	randomDuration := time.Duration(randomNumber) * time.Second
-
-	fmt.Printf("randomDuration: %v\n", randomNumber)
+	logger.Printf("random Duration: %v\n", randomNumber)
 
 	return randomDuration
 }
