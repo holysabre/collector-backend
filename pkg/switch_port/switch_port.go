@@ -48,6 +48,7 @@ func (spc *SPCollector) GetByOids() {
 	if result.Error != g.NoError {
 		errOid := oids[result.ErrorIndex-1]
 		logger.Printf("ns port %d, oid: %s, err: %s \n", spc.SwitchPort.ID, errOid, result.Error.String())
+		return
 	}
 
 	pdus := []model_snmp.Pdu{}
