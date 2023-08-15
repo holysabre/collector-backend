@@ -245,6 +245,7 @@ func (ctrl *Controller) ListenReturnQueue() {
 		}
 		if err := ctrl.publishMsg(ctrl.Channel, ctrl.Queue, <-*ctrl.ReturnChann); err != nil {
 			fmt.Println("Fail to publish, err: ", err)
+			break
 		}
 	}
 }
