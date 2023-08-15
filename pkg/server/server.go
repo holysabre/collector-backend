@@ -59,6 +59,7 @@ func (sc *ServerCollector) Collect() {
 			try_times++
 		} else {
 			sc.Server.PowerStatus = status
+			break
 		}
 	}
 
@@ -79,6 +80,7 @@ func (sc *ServerCollector) Collect() {
 			try_times++
 		} else {
 			sc.Server.PowerReading = power
+			break
 		}
 	}
 
