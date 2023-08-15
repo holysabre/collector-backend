@@ -57,6 +57,7 @@ func (sc *ServerCollector) Collect() {
 		if err != nil {
 			logger.Printf("server #%d get power failed, err: %v \n", sc.Server.ID, err.Error())
 			try_times++
+			time.Sleep(1 * time.Second)
 		} else {
 			sc.Server.PowerStatus = status
 			break
@@ -78,6 +79,7 @@ func (sc *ServerCollector) Collect() {
 		if err != nil {
 			logger.Printf("server #%d get power reading failed, err: %v \n", sc.Server.ID, err.Error())
 			try_times++
+			time.Sleep(1 * time.Second)
 		} else {
 			sc.Server.PowerReading = power
 			break
