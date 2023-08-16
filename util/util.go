@@ -53,7 +53,7 @@ func GetRootDir() string {
 		}
 		dir = filepath.Dir(exePath)
 	}
-	fmt.Println("root dir: ", dir)
+	// fmt.Println("root dir: ", dir)
 	return dir
 }
 
@@ -67,14 +67,14 @@ func GetBinDir() string {
 
 		return dir
 	} else {
-		fmt.Println("exec binary")
+		// fmt.Println("exec binary")
 		exePath, err := os.Executable()
 		if err != nil {
 			panic(err)
 		}
 		exeDir := filepath.Dir(exePath)
 		templatesDir := filepath.Join(exeDir, "bin")
-		fmt.Println("templatesDir:", templatesDir)
+		// fmt.Println("templatesDir:", templatesDir)
 		return templatesDir
 	}
 }

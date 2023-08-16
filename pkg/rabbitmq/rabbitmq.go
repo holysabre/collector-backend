@@ -10,6 +10,7 @@ import (
 	"collector-agent/pkg/network_switch"
 	"collector-agent/pkg/server"
 	"collector-agent/pkg/system"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -159,9 +160,12 @@ func (ctrl *Controller) ListenQueue() {
 func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 	// log.Println("Type: ", msg.Type)
 	body := []byte(msg.Data)
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 30)
+	defer cancel()
 	switch msg.Type {
 	case "switch":
-		ctrl.NSPool.Go(func() {
+		ctrl.NSPool.CtxGo(ctx, func() {
 			var ns model_ns.NetworkSwitch
 			err := json.Unmarshal(body, &ns)
 			logger.LogIfErrWithMsg(err, "NetworkSwitch Unable To Parse JSON Data")
@@ -176,7 +180,7 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 			*ctrl.ReturnChann <- returnMsg
 		})
 	case "server":
-		ctrl.ServerPool.Go(func() {
+		ctrl.ServerPool.CtxGo(ctx, func() {
 			var s model_server.Server
 			err := json.Unmarshal(body, &s)
 			logger.LogIfErrWithMsg(err, "Server Unable To Parse JSON Data")
@@ -191,7 +195,7 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 			*ctrl.ReturnChann <- returnMsg
 		})
 	case "system":
-		ctrl.Pool.Go(func() {
+		ctrl.Pool.CtxGo(ctx, func() {
 			var s model_system.SystemInfo
 			err := json.Unmarshal(body, &s)
 			logger.LogIfErrWithMsg(err, "Systen Unable To Parse JSON Data")
