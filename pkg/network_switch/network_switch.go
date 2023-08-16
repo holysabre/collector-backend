@@ -24,7 +24,8 @@ func NewNSCollector(ns *model_ns.NetworkSwitch) *NSCollector {
 		Community: ns.Connection.Community,
 		Version:   model_snmp.GetSNMPVersion(ns.Connection.Version),
 		Timeout:   time.Duration(10) * time.Second,
-		Retries:   0,
+		Retries:   2,
+		MaxOids:   1000,
 	}
 	return &NSCollector{
 		Connection:    conn,

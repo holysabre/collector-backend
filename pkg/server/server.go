@@ -42,7 +42,7 @@ func NewServerCollector(s *model_server.Server) *ServerCollector {
 
 func (sc *ServerCollector) Collect() error {
 	if sc.checkInBlacklist() {
-		errStr := fmt.Sprintf("server#%d is in blacklist, skip get power\n", sc.Server.ID)
+		errStr := fmt.Sprintf("server#%d is in blacklist, skip get power", sc.Server.ID)
 		return errors.New(errStr)
 	}
 
@@ -53,12 +53,12 @@ func (sc *ServerCollector) Collect() error {
 		if tryGetPowerTimes > RetryMaxTimes {
 			_, err := sc.pushToBlacklist()
 			logger.LogIfErrWithMsg(err, fmt.Sprintf("server #%d push to blacklist", sc.Server.ID))
-			errStr := fmt.Sprintf("server#%d try %d times to get power, skipped \n", tryGetPowerTimes, sc.Server.ID)
+			errStr := fmt.Sprintf("server#%d try %d times to get power, skipped ", tryGetPowerTimes, sc.Server.ID)
 			return errors.New(errStr)
 		}
 		status, err := sc.getPower()
 		if err != nil {
-			logger.Printf("server#%d get power failed, try times %d, err: %v \n", sc.Server.ID, tryGetPowerTimes, err.Error())
+			logger.Printf("server#%d get power failed, try times %d, err: %v ", sc.Server.ID, tryGetPowerTimes, err.Error())
 			tryGetPowerTimes++
 			time.Sleep(1 * time.Second)
 		} else {
@@ -72,12 +72,12 @@ func (sc *ServerCollector) Collect() error {
 		if tryGetPowerReadingtimes > RetryMaxTimes {
 			_, err := sc.pushToBlacklist()
 			logger.LogIfErrWithMsg(err, fmt.Sprintf("server #%d push to blacklist", sc.Server.ID))
-			errStr := fmt.Sprintf("server#%d try %d times to get power reading, skipped \n", tryGetPowerReadingtimes, sc.Server.ID)
+			errStr := fmt.Sprintf("server#%d try %d times to get power reading, skipped ", tryGetPowerReadingtimes, sc.Server.ID)
 			return errors.New(errStr)
 		}
 		power, err := sc.PowerReading()
 		if err != nil {
-			logger.Printf("server#%d get power reading failed, try times %d, err: %v \n", sc.Server.ID, tryGetPowerReadingtimes, err.Error())
+			logger.Printf("server#%d get power reading failed, try times %d, err: %v ", sc.Server.ID, tryGetPowerReadingtimes, err.Error())
 			tryGetPowerReadingtimes++
 			time.Sleep(1 * time.Second)
 		} else {
@@ -105,7 +105,7 @@ func (sc *ServerCollector) getPower() (string, error) {
 		return status, err
 	}
 	status = matches[1]
-	logger.Printf("server #%d power status: %s \n", sc.Server.ID, status)
+	logger.Printf("server #%d power status: %s ", sc.Server.ID, status)
 
 	return status, nil
 }
@@ -126,7 +126,7 @@ func (sc *ServerCollector) PowerReading() (int, error) {
 	matches := reg.FindStringSubmatch(string(out))
 	if len(matches) > 1 {
 		power, _ := strconv.Atoi(matches[1])
-		logger.Printf("server #%d power reading: %d \n", sc.Server.ID, power)
+		logger.Printf("server #%d power reading: %d ", sc.Server.ID, power)
 		return power, nil
 	}
 
@@ -208,7 +208,7 @@ func (sc *ServerCollector) getRandomCacheTime() time.Duration {
 
 	randomNumber := rand.Intn(max-min+1) + min
 	randomDuration := time.Duration(randomNumber) * time.Second
-	logger.Printf("random Duration: %v\n", randomNumber)
+	logger.Printf("random Duration: %v", randomNumber)
 
 	return randomDuration
 }
