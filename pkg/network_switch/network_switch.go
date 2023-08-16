@@ -23,7 +23,7 @@ func NewNSCollector(ns *model_ns.NetworkSwitch) *NSCollector {
 		Port:      uint16(ns.Connection.Port),
 		Community: ns.Connection.Community,
 		Version:   model_snmp.GetSNMPVersion(ns.Connection.Version),
-		Timeout:   time.Duration(2) * time.Second,
+		Timeout:   time.Duration(10) * time.Second,
 		Retries:   0,
 	}
 	return &NSCollector{
