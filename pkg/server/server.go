@@ -157,7 +157,7 @@ func (sc *ServerCollector) isOldIPMIToolVersion() bool {
 	redisReadConn.CloseClient(redisReadClient)
 
 	rootDir := util.GetRootDir()
-	oldIPMIBinary := rootDir + "/bin/impmitool"
+	oldIPMIBinary := rootDir + "/bin/ipmitool"
 
 	var out []byte
 	out, err = sc.run(sc.IPMIBinary, []string{"fru"})
