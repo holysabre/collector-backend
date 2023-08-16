@@ -54,7 +54,7 @@ func (sc *ServerCollector) Collect() error {
 		if tryGetPowerTimes > RetryMaxTimes {
 			_, err := sc.pushToBlacklist()
 			logger.LogIfErrWithMsg(err, fmt.Sprintf("server #%d push to blacklist", sc.Server.ID))
-			errStr = fmt.Sprintf("server#%d try %d times to get power, skipped ", tryGetPowerTimes, sc.Server.ID)
+			errStr = fmt.Sprintf("server#%d try %d times to get power, skipped ", sc.Server.ID, tryGetPowerTimes)
 			break
 		}
 		status, err := sc.getPower()
@@ -76,7 +76,7 @@ func (sc *ServerCollector) Collect() error {
 		if tryGetPowerReadingtimes > RetryMaxTimes {
 			_, err := sc.pushToBlacklist()
 			logger.LogIfErrWithMsg(err, fmt.Sprintf("server #%d push to blacklist", sc.Server.ID))
-			errStr = fmt.Sprintf("server#%d try %d times to get power reading, skipped ", tryGetPowerReadingtimes, sc.Server.ID)
+			errStr = fmt.Sprintf("server#%d try %d times to get power reading, skipped ", sc.Server.ID, tryGetPowerReadingtimes)
 			break
 		}
 		power, err := sc.PowerReading()
