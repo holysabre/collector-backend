@@ -25,7 +25,7 @@ const (
 	BlacklistPrefix             = "server-blacklist:server#"
 	BlacklistBaseEXMintues      = 10
 	BlacklistBaseEXFloatMintues = 5
-	RetryMaxTimes               = 5
+	RetryMaxTimes               = 3
 )
 
 type ServerCollector struct {
@@ -49,22 +49,26 @@ func (sc *ServerCollector) Collect() error {
 	sc.Server.Time = time.Now()
 
 	tryGetPowerTimes := 1
+	errStr := ""
 	for {
 		if tryGetPowerTimes > RetryMaxTimes {
 			_, err := sc.pushToBlacklist()
 			logger.LogIfErrWithMsg(err, fmt.Sprintf("server #%d push to blacklist", sc.Server.ID))
-			errStr := fmt.Sprintf("server#%d try %d times to get power, skipped ", tryGetPowerTimes, sc.Server.ID)
-			return errors.New(errStr)
+			errStr = fmt.Sprintf("server#%d try %d times to get power, skipped ", tryGetPowerTimes, sc.Server.ID)
+			break
 		}
 		status, err := sc.getPower()
 		if err != nil {
 			logger.Printf("server#%d get power failed, try times %d, err: %v ", sc.Server.ID, tryGetPowerTimes, err.Error())
-			tryGetPowerTimes++
 			time.Sleep(1 * time.Second)
 		} else {
 			sc.Server.PowerStatus = status
 			break
 		}
+		tryGetPowerTimes++
+	}
+	if errStr != "" {
+		return errors.New(errStr)
 	}
 
 	tryGetPowerReadingtimes := 1
@@ -72,18 +76,21 @@ func (sc *ServerCollector) Collect() error {
 		if tryGetPowerReadingtimes > RetryMaxTimes {
 			_, err := sc.pushToBlacklist()
 			logger.LogIfErrWithMsg(err, fmt.Sprintf("server #%d push to blacklist", sc.Server.ID))
-			errStr := fmt.Sprintf("server#%d try %d times to get power reading, skipped ", tryGetPowerReadingtimes, sc.Server.ID)
-			return errors.New(errStr)
+			errStr = fmt.Sprintf("server#%d try %d times to get power reading, skipped ", tryGetPowerReadingtimes, sc.Server.ID)
+			break
 		}
 		power, err := sc.PowerReading()
 		if err != nil {
 			logger.Printf("server#%d get power reading failed, try times %d, err: %v ", sc.Server.ID, tryGetPowerReadingtimes, err.Error())
-			tryGetPowerReadingtimes++
 			time.Sleep(1 * time.Second)
 		} else {
 			sc.Server.PowerReading = power
 			break
 		}
+		tryGetPowerReadingtimes++
+	}
+	if errStr != "" {
+		return errors.New(errStr)
 	}
 
 	return nil
@@ -161,6 +168,7 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 	cmd := exec.CommandContext(ctx, command, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.Printf("power run failed, cmd: %v, out: %v", cmd.String(), string(out))
 		return out, err
 	}
 	return out, nil
