@@ -13,6 +13,7 @@ func GetSNMPVersion(v string) (version g.SnmpVersion) {
 	case "3":
 		version = g.Version3
 	case "2c":
+		version = g.Version2c
 	default:
 		version = g.Version2c
 	}
