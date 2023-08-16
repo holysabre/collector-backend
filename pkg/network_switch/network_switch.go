@@ -6,6 +6,7 @@ import (
 	"collector-agent/pkg/logger"
 	"collector-agent/pkg/switch_port"
 	"collector-agent/util"
+	"log"
 	"math/big"
 	"time"
 
@@ -44,6 +45,7 @@ func (nsc *NSCollector) Collect() error {
 	// 获取设备信息
 	resp, err := nsc.Connection.Get([]string{".1.3.6.1.2.1.1.1.0", ".1.3.6.1.2.1.1.6.0"})
 	if err != nil {
+		log.Println(nsc.Connection)
 		logger.Printf("ns #%d SNMP request err: %v \n", nsc.NetworkSwitch.ID, err.Error())
 		return err
 	}
