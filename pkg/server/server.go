@@ -130,9 +130,9 @@ func (sc *ServerCollector) getPowerReading() (power int, err error) {
 		return sc.getOldPowerReading()
 	}
 
-	power, err = sc.getNewPowerReading()
+	power, err = sc.getOldPowerReading()
 	if err != nil {
-		power, err = sc.getOldPowerReading()
+		power, err = sc.getNewPowerReading()
 	}
 
 	return
