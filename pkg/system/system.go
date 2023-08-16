@@ -7,6 +7,8 @@ import (
 	"collector-agent/util"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os/exec"
 	"time"
 
@@ -27,25 +29,38 @@ func NewSystemCollector(s *model_system.SystemInfo) *SystemCollector {
 	}
 }
 
-func (sc *SystemCollector) Collect() {
+func (sc *SystemCollector) Collect() error {
 	time.Sleep(10 * time.Second)
-	sc.collectIOStat()
-	sc.collectRam()
-	sc.collectDisk()
-	sc.collectNet()
+
+	err := sc.collectIOStat()
+	logger.LogIfErr(err)
+
+	err = sc.collectRam()
+	logger.LogIfErr(err)
+
+	err = sc.collectDisk()
+	logger.LogIfErr(err)
+
+	err = sc.collectNet()
+	logger.LogIfErr(err)
+
 	sc.SystemInfo.Time = time.Now()
 
 	// fmt.Println("collect done \n", sc.SystemInfo)
+	return nil
 }
 
-func (sc *SystemCollector) collectIOStat() {
+func (sc *SystemCollector) collectIOStat() error {
 	args := []string{"-x", "-o", "JSON", "1", "2"}
 	out, err := sc.run("iostat", args)
-	util.LogIfErr(err)
+	if err != nil {
+		return err
+	}
 
 	var iostat model_system.IoStat
 	if err := json.Unmarshal([]byte(out), &iostat); err != nil {
 		logger.Println("Failed to unmarshal JSON")
+		return err
 	}
 
 	if len(iostat.Sysstat.Hosts) > 0 {
@@ -76,13 +91,14 @@ func (sc *SystemCollector) collectIOStat() {
 			// fmt.Println(sc.SystemInfo.Parames)
 		}
 	}
+	return nil
 }
 
-func (sc *SystemCollector) collectRam() {
+func (sc *SystemCollector) collectRam() error {
 	vm, err := mem.VirtualMemory()
 	if err != nil {
-		logger.Printf("Failed to get virtual memory info, err: %v \n", err.Error())
-		return
+		errStr := fmt.Sprintf("Failed to get virtual memory info, err: %v \n", err.Error())
+		return errors.New(errStr)
 	}
 
 	disksParame := model_system.Parame{
@@ -94,14 +110,15 @@ func (sc *SystemCollector) collectRam() {
 		},
 	}
 	sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, disksParame)
+	return nil
 }
 
-func (sc *SystemCollector) collectDisk() {
+func (sc *SystemCollector) collectDisk() error {
 	args := []string{"-c", `mount | grep /app | grep -v iso | grep -v /app/run | awk '{print $3}'`}
 	out, err := sc.run("bash", args)
 	if err != nil {
-		logger.Printf("Failed to get disk info, err: %v \n", err.Error())
-		return
+		errStr := fmt.Sprintf("Failed to get disk info, err: %v \n", err.Error())
+		return errors.New(errStr)
 	}
 
 	lines := bytes.Split(out, []byte{'\n'})
@@ -151,13 +168,14 @@ func (sc *SystemCollector) collectDisk() {
 		Value: diskPath,
 	}
 	sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, diskPathParame)
+	return nil
 }
 
-func (sc *SystemCollector) collectNet() {
+func (sc *SystemCollector) collectNet() error {
 	ioCountersStat, err := net.IOCounters(true)
 	if err != nil {
-		logger.Printf("Fail To Get Network Data %v: \n", err.Error())
-		return
+		errStr := fmt.Sprintf("Fail To Get Network Data %v: \n", err.Error())
+		return errors.New(errStr)
 	}
 
 	network := map[string]map[string]interface{}{}
@@ -179,6 +197,7 @@ func (sc *SystemCollector) collectNet() {
 		Value: network,
 	}
 	sc.SystemInfo.Parames = append(sc.SystemInfo.Parames, diskPathParame)
+	return nil
 }
 
 func (sc *SystemCollector) run(command string, args []string) ([]byte, error) {

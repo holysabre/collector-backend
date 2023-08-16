@@ -166,7 +166,10 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 			err := json.Unmarshal(body, &ns)
 			logger.LogIfErrWithMsg(err, "NetworkSwitch Unable To Parse JSON Data")
 			nsc := network_switch.NewNSCollector(&ns)
-			nsc.Collect()
+			if err := nsc.Collect(); err != nil {
+				logger.Println(err.Error())
+				return
+			}
 			jsonData, err := json.Marshal(nsc.NetworkSwitch)
 			logger.LogIfErrWithMsg(err, "Cannot Be Encoded In JSON Format")
 			returnMsg := model_msg.Msg{Type: "switch", Time: time.Now().Unix(), Data: string(jsonData)}
@@ -178,7 +181,10 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 			err := json.Unmarshal(body, &s)
 			logger.LogIfErrWithMsg(err, "Server Unable To Parse JSON Data")
 			sc := server.NewServerCollector(&s)
-			sc.Collect()
+			if err := sc.Collect(); err != nil {
+				logger.Println(err.Error())
+				return
+			}
 			jsonData, err := json.Marshal(sc.Server)
 			logger.LogIfErrWithMsg(err, "Cannot Be Encoded In JSON Format")
 			returnMsg := model_msg.Msg{Type: "server", Time: time.Now().Unix(), Data: string(jsonData)}
@@ -190,7 +196,10 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 			err := json.Unmarshal(body, &s)
 			logger.LogIfErrWithMsg(err, "Systen Unable To Parse JSON Data")
 			sc := system.NewSystemCollector(&s)
-			sc.Collect()
+			if err := sc.Collect(); err != nil {
+				logger.Println(err.Error())
+				return
+			}
 			jsonData, err := json.Marshal(sc.SystemInfo)
 			logger.LogIfErrWithMsg(err, "Cannot Be Encoded In JSON Format")
 			returnMsg := model_msg.Msg{Type: "system", Time: time.Now().Unix(), Data: string(jsonData)}
