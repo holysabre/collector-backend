@@ -161,7 +161,7 @@ func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
 	// log.Println("Type: ", msg.Type)
 	body := []byte(msg.Data)
 	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 30)
+	ctx, cancel := context.WithTimeout(ctx, 60)
 	defer cancel()
 	switch msg.Type {
 	case "switch":
