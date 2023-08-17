@@ -124,7 +124,6 @@ func (sc *ServerCollector) getPowerReading() (power int, err error) {
 
 func (sc *ServerCollector) isOldIPMIToolVersion() bool {
 	redisReadClient := db.GetRedisClient()
-	defer redisReadClient.Close()
 	ver, err := redisReadClient.Get(context.Background(), sc.getIPMIVersionCacheKey()).Result()
 	if err == nil {
 		if err != redis.Nil {
@@ -253,14 +252,12 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 
 func (sc *ServerCollector) cacheCorrectIPMIToolVersion(version string) {
 	redisClient := db.GetRedisClient()
-	defer redisClient.Close()
 	result := redisClient.SetNX(context.Background(), sc.getIPMIVersionCacheKey(), version, sc.getRandomCacheTime(IPMIVersionBaseEXMintues, IPMIVersionBaseEXFloatMintues))
 	log.Println(result.Result())
 }
 
 func (sc *ServerCollector) pushToBlacklist() (bool, error) {
 	redisClient := db.GetRedisClient()
-	defer redisClient.Close()
 
 	result := redisClient.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
 
@@ -271,7 +268,6 @@ func (sc *ServerCollector) pushToBlacklist() (bool, error) {
 
 func (sc *ServerCollector) checkInBlacklist() bool {
 	redisClient := db.GetRedisClient()
-	defer redisClient.Close()
 
 	ctx := context.Background()
 

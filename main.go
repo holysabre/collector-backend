@@ -39,8 +39,6 @@ func run() {
 	SSLClientCrtPem, _ := client.Get(context.Background(), "SSLClientCrtPem").Result()
 	SSLClientKeyPem, _ := client.Get(context.Background(), "SSLClientKeyPem").Result()
 
-	client.Close()
-
 	url := "amqps://guest:guest@" + amqpUrl + ":5671/"
 	logger.Printf("amqp url: %s", url)
 
