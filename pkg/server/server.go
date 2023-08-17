@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -22,11 +23,11 @@ import (
 )
 
 const (
-	CmdTimeout                    = 5 * time.Second
+	CmdTimeout                    = 10 * time.Second
 	BlacklistPrefix               = "server-blacklist:server#"
 	BlacklistBaseEXMintues        = 10
 	BlacklistBaseEXFloatMintues   = 5
-	RetryMaxTimes                 = 3
+	RetryMaxTimes                 = 2
 	IPMIVersionBaseEXMintues      = 2
 	IPMIVersionBaseEXFloatMintues = 1
 )
@@ -85,11 +86,11 @@ func (sc *ServerCollector) Collect() error {
 			break
 		}
 		power, err := sc.getPowerReading()
+		logger.Printf("power %d", power)
 		if err != nil {
 			logger.Printf("server#%d get power reading failed, try times %d, err: %v ", sc.Server.ID, tryGetPowerReadingtimes, err.Error())
 			time.Sleep(1 * time.Second)
 		} else {
-			fmt.Println("power ", power)
 			sc.Server.PowerReading = power
 			break
 		}
@@ -145,7 +146,7 @@ func (sc *ServerCollector) isOldIPMIToolVersion() bool {
 	ver, err := redisReadClient.Get(context.Background(), sc.getIPMIVersionCacheKey()).Result()
 	if err == nil {
 		if err != redis.Nil {
-			fmt.Println("get version from redis ", ver)
+			logger.Printf("get version from redis %s", ver)
 			if ver == "old" {
 				return true
 			} else {
@@ -160,9 +161,9 @@ func (sc *ServerCollector) isOldIPMIToolVersion() bool {
 	oldIPMIBinary := rootDir + "/bin/ipmitool"
 
 	var out []byte
-	out, err = sc.run(sc.IPMIBinary, []string{"fru"})
+	out, err = sc.run("ipmitool", []string{"fru"})
 	if err != nil {
-		fmt.Println("check old form fru")
+		logger.Println("check old form fru")
 		sc.IPMIBinary = oldIPMIBinary
 		out, err = sc.run(sc.IPMIBinary, []string{"fru"})
 		if err != nil {
@@ -187,7 +188,7 @@ func (sc *ServerCollector) isOldIPMIToolVersion() bool {
 
 	sc.cacheCorrectIPMIToolVersion(version)
 
-	fmt.Println("get version from cli ", version)
+	logger.Printf("get version from cli %s", version)
 
 	return needOldVersion
 }
@@ -198,12 +199,20 @@ func (sc *ServerCollector) getIPMIVersionCacheKey() string {
 
 func (sc *ServerCollector) getOldPowerReading() (int, error) {
 	logger.Println("getOldPowerReading")
-	args := []string{"sdr", "get", "Power"}
-	out, err := sc.run(sc.IPMIBinary, args)
-	if err != nil {
-		return 0, err
+	keywords := []string{"Power", "Total_Power", "Sys_Total_Power"}
+	var out []byte
+	var err error
+	for _, keyword := range keywords {
+		args := []string{"sdr", "get", keyword}
+		out, err = sc.run(sc.IPMIBinary, args)
+		// logger.Println(string(out))
+		if err == nil {
+			break
+		}
+		logger.Println(err.Error())
 	}
-	pattern := `^\s*Sensor Reading\s+:\s+(\d+)`
+
+	pattern := `Sensor Reading\s+:\s+(\d+)`
 	reg := regexp.MustCompile(pattern)
 	matches := reg.FindStringSubmatch(string(out))
 	if len(matches) > 1 {
@@ -220,7 +229,7 @@ func (sc *ServerCollector) getNewPowerReading() (int, error) {
 	args := []string{"dcmi", "power", "reading"}
 	var out []byte
 	var err error
-	out, err = sc.run(sc.IPMIBinary, args)
+	out, err = sc.run("ipmitool", args)
 	if err != nil {
 		logger.Println(string(out))
 		return 0, err
@@ -240,7 +249,11 @@ func (sc *ServerCollector) getNewPowerReading() (int, error) {
 }
 
 func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, error) {
-	args := []string{"-R", "2", "-H", sc.Connection.Hostname, "-U", sc.Connection.Username, "-P", sc.Connection.Password, "-I", "lanplus"}
+	os.Setenv("CMD_ENV_SKIP_SHELL_EXPAND", "true")
+	username := fmt.Sprintf(`%s`, sc.Connection.Username)
+	password := fmt.Sprintf(`%s`, sc.Connection.Password)
+
+	args := []string{"-H", sc.Connection.Hostname, "-U", username, "-P", password, "-I", "lanplus"}
 	args = append(args, appendArgs...)
 
 	ctx := context.Background()
@@ -248,6 +261,7 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, command, args...)
+	logger.Println(cmd.String())
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		logger.Printf("power run failed, cmd: %v, out: %v", cmd.String(), string(out))
@@ -266,14 +280,17 @@ func (sc *ServerCollector) cacheCorrectIPMIToolVersion(version string) {
 }
 
 func (sc *ServerCollector) pushToBlacklist() (bool, error) {
-	redisConn := db.NewRedisReadConnection()
-	client := redisConn.GetClient()
+	return true, nil
+	// redisConn := db.NewRedisReadConnection()
+	// client := redisConn.GetClient()
 
-	result := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
+	// result := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
 
-	redisConn.CloseClient(client)
+	// redisConn.CloseClient(client)
 
-	return result.Result()
+	// logger.Printf("server#%d push into blacklist", sc.Server.CabinetID)
+
+	// return result.Result()
 }
 
 func (sc *ServerCollector) checkInBlacklist() bool {

@@ -11,7 +11,6 @@ require (
 require (
 	github.com/farmerx/gorsa v0.0.0-20161211100049-3ae06f674f40
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/joho/godotenv v1.5.1
 	github.com/shirou/gopsutil/v3 v3.23.5
 )
 
