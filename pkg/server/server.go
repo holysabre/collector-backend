@@ -123,7 +123,7 @@ func (sc *ServerCollector) getPowerReading() (power int, err error) {
 }
 
 func (sc *ServerCollector) isOldIPMIToolVersion() bool {
-	redisReadConn := db.NewRedisReadConnection()
+	redisReadConn := db.NewRedisConnection()
 	redisReadClient := redisReadConn.GetClient()
 
 	ver, err := redisReadClient.Get(context.Background(), sc.getIPMIVersionCacheKey()).Result()
@@ -254,16 +254,16 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 }
 
 func (sc *ServerCollector) cacheCorrectIPMIToolVersion(version string) {
-	redisWriteConn := db.NewRedisWriteConnection()
-	redisWriteClient := redisWriteConn.GetClient()
-	result := redisWriteClient.SetNX(context.Background(), sc.getIPMIVersionCacheKey(), version, sc.getRandomCacheTime(IPMIVersionBaseEXMintues, IPMIVersionBaseEXFloatMintues))
+	redisConn := db.NewRedisConnection()
+	redisClient := redisConn.GetClient()
+	result := redisClient.SetNX(context.Background(), sc.getIPMIVersionCacheKey(), version, sc.getRandomCacheTime(IPMIVersionBaseEXMintues, IPMIVersionBaseEXFloatMintues))
 	log.Println(result.Result())
 
-	redisWriteConn.CloseClient(redisWriteClient)
+	redisConn.CloseClient(redisClient)
 }
 
 func (sc *ServerCollector) pushToBlacklist() (bool, error) {
-	redisConn := db.NewRedisWriteConnection()
+	redisConn := db.NewRedisConnection()
 	client := redisConn.GetClient()
 
 	result := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
@@ -276,7 +276,7 @@ func (sc *ServerCollector) pushToBlacklist() (bool, error) {
 }
 
 func (sc *ServerCollector) checkInBlacklist() bool {
-	redisConn := db.NewRedisReadConnection()
+	redisConn := db.NewRedisConnection()
 	client := redisConn.GetClient()
 
 	ctx := context.Background()

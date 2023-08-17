@@ -15,7 +15,7 @@ func main() {
 }
 
 func run() {
-	redisConn := db.NewRedisReadConnection()
+	redisConn := db.NewRedisConnection()
 	client := redisConn.GetClient()
 	amqpUrl, err := client.Get(context.Background(), "RabbitmqUrl").Result()
 	logger.ExitIfErr(err, "Fail To Get Data From Redis")

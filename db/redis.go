@@ -3,51 +3,54 @@ package db
 import (
 	"collector-agent/pkg/logger"
 	"context"
+	"log"
 	"sync"
 
 	"github.com/go-redis/redis/v8"
 )
 
-const redisReadClientCap = 20
+const redisClientCap = 30
 
-type RedisReadConnection struct {
-	RedisReadClientChan chan *redis.Client
+type RedisConnection struct {
+	RedisClient *redis.Client
 }
 
 var read_once sync.Once
-var internalRedisReadClient *RedisReadConnection
+var internalRedisClient *RedisConnection
 
-func NewRedisReadConnection() *RedisReadConnection {
+func NewRedisConnection() *RedisConnection {
 	read_once.Do(func() {
-		internalRedisReadClient = &RedisReadConnection{}
-		internalRedisReadClient.RedisReadClientChan = make(chan *redis.Client, redisReadClientCap)
+		// internalRedisClient.RedisClient = make(chan *redis.Client, redisReadClientCap)
 
 		options := redis.Options{
-			Network: "unix",
-			Addr:    "/app/run/redis.sock",
-			DB:      0,
+			Network:  "unix",
+			Addr:     "/app/run/redis.sock",
+			DB:       0,
+			PoolSize: redisClientCap,
 		}
 
-		for i := 0; i < redisReadClientCap; i++ {
-			c := redis.NewClient(&options)
+		c := redis.NewClient(&options)
 
-			_, err := c.Ping(context.Background()).Result()
-			logger.ExitIfErr(err, "Unable To Connect To Redis")
-			internalRedisReadClient.RedisReadClientChan <- c
-		}
-		logger.Printf("RedisReadClientChan len: %d \n", len(internalRedisReadClient.RedisReadClientChan))
+		// for i := 0; i < redisReadClientCap; i++ {
+		// 	c := redis.NewClient(&options)
+
+		_, err := c.Ping(context.Background()).Result()
+		logger.ExitIfErr(err, "Unable To Connect To Redis")
+		internalRedisClient.RedisClient = c
+		// }
+		// logger.Printf("RedisReadClientChan len: %d \n", len(internalRedisReadClient.RedisReadClientChan))
 	})
 
-	return internalRedisReadClient
+	return internalRedisClient
 }
 
-func (rrc RedisReadConnection) GetClient() *redis.Client {
-	logger.Printf("redis pool len: %d", len(rrc.RedisReadClientChan))
-	return <-rrc.RedisReadClientChan
+func (rrc RedisConnection) GetClient() *redis.Client {
+	log.Println(rrc.RedisClient.PoolStats())
+	return rrc.RedisClient
 }
 
-func (rrc RedisReadConnection) CloseClient(c *redis.Client) {
-	rrc.RedisReadClientChan <- c
+func (rrc RedisConnection) CloseClient(c *redis.Client) {
+	rrc.RedisClient.Close()
 }
 
 func GetRedisConnection() *redis.Client {
