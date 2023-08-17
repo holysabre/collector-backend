@@ -39,6 +39,7 @@ type ServerCollector struct {
 }
 
 func NewServerCollector(s *model_server.Server) *ServerCollector {
+	logger.Printf("server %d starting", s.ID)
 	return &ServerCollector{
 		Server:     s,
 		Connection: s.Connection,

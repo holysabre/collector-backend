@@ -24,6 +24,7 @@ type SystemCollector struct {
 }
 
 func NewSystemCollector(s *model_system.SystemInfo) *SystemCollector {
+	logger.Printf("sys %d starting", s.ID)
 	return &SystemCollector{
 		SystemInfo: s,
 	}

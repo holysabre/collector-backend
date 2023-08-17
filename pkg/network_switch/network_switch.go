@@ -19,7 +19,7 @@ type NSCollector struct {
 }
 
 func NewNSCollector(ns *model_ns.NetworkSwitch) *NSCollector {
-	// logger.Printf("origin version: %s, cur version: %v", ns.Connection.Version, model_snmp.GetSNMPVersion(ns.Connection.Version))
+	logger.Printf("ns %d starting", ns.ID)
 	conn := &g.GoSNMP{
 		Target:    ns.Connection.Target,
 		Port:      uint16(ns.Connection.Port),
