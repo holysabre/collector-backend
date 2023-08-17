@@ -42,6 +42,7 @@ func NewRedisReadConnection() *RedisReadConnection {
 }
 
 func (rrc RedisReadConnection) GetClient() *redis.Client {
+	logger.Printf("redis pool len: %d", len(rrc.RedisReadClientChan))
 	return <-rrc.RedisReadClientChan
 }
 
