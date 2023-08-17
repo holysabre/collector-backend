@@ -123,9 +123,8 @@ func (sc *ServerCollector) getPowerReading() (power int, err error) {
 }
 
 func (sc *ServerCollector) isOldIPMIToolVersion() bool {
-	redisReadConn := db.NewRedisConnection()
-	redisReadClient := redisReadConn.GetClient()
-
+	redisReadClient := db.GetRedisClient()
+	defer redisReadClient.Close()
 	ver, err := redisReadClient.Get(context.Background(), sc.getIPMIVersionCacheKey()).Result()
 	if err == nil {
 		if err != redis.Nil {
@@ -138,7 +137,6 @@ func (sc *ServerCollector) isOldIPMIToolVersion() bool {
 		}
 	}
 	logger.Printf("No Data From Redis, key: %s", sc.getIPMIVersionCacheKey())
-	redisReadConn.CloseClient(redisReadClient)
 
 	rootDir := util.GetRootDir()
 	oldIPMIBinary := rootDir + "/bin/ipmitool"
@@ -254,21 +252,17 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 }
 
 func (sc *ServerCollector) cacheCorrectIPMIToolVersion(version string) {
-	redisConn := db.NewRedisConnection()
-	redisClient := redisConn.GetClient()
+	redisClient := db.GetRedisClient()
+	defer redisClient.Close()
 	result := redisClient.SetNX(context.Background(), sc.getIPMIVersionCacheKey(), version, sc.getRandomCacheTime(IPMIVersionBaseEXMintues, IPMIVersionBaseEXFloatMintues))
 	log.Println(result.Result())
-
-	redisConn.CloseClient(redisClient)
 }
 
 func (sc *ServerCollector) pushToBlacklist() (bool, error) {
-	redisConn := db.NewRedisConnection()
-	client := redisConn.GetClient()
+	redisClient := db.GetRedisClient()
+	defer redisClient.Close()
 
-	result := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
-
-	redisConn.CloseClient(client)
+	result := redisClient.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
 
 	logger.Printf("server#%d push into blacklist", sc.Server.CabinetID)
 
@@ -276,25 +270,21 @@ func (sc *ServerCollector) pushToBlacklist() (bool, error) {
 }
 
 func (sc *ServerCollector) checkInBlacklist() bool {
-	redisConn := db.NewRedisConnection()
-	client := redisConn.GetClient()
+	redisClient := db.GetRedisClient()
+	defer redisClient.Close()
 
 	ctx := context.Background()
 
 	key := sc.getCacheKey()
-	isExists, err := client.Exists(ctx, key).Result()
+	isExists, err := redisClient.Exists(ctx, key).Result()
 	if err != nil {
 		logger.Printf("Unable To Connect Redis, key: %s", key)
-		redisConn.CloseClient(client)
 		return false
 	}
 	if err == redis.Nil {
 		logger.Printf("Key not found, key: %s", key)
-		redisConn.CloseClient(client)
 		return false
 	}
-
-	redisConn.CloseClient(client)
 
 	return isExists > 0
 }
