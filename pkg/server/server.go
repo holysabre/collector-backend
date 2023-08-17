@@ -77,6 +77,7 @@ func (sc *ServerCollector) Collect() error {
 	if errStr != "" {
 		return errors.New(errStr)
 	}
+	logger.Printf("server %d get power finished", sc.Server.ID)
 
 	tryGetPowerReadingtimes := 1
 	for {
