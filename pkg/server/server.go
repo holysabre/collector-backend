@@ -27,7 +27,7 @@ const (
 	BlacklistPrefix               = "server-blacklist:server#"
 	BlacklistBaseEXMintues        = 10
 	BlacklistBaseEXFloatMintues   = 5
-	RetryMaxTimes                 = "2"
+	RetryMaxTimes                 = 2
 	IPMIVersionBaseEXMintues      = 2
 	IPMIVersionBaseEXFloatMintues = 1
 )
@@ -235,7 +235,7 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 	username := fmt.Sprintf(`%s`, sc.Connection.Username)
 	password := fmt.Sprintf(`%s`, sc.Connection.Password)
 
-	args := []string{"-H", "-R", RetryMaxTimes, sc.Connection.Hostname, "-U", username, "-P", password, "-I", "lanplus"}
+	args := []string{"-H", sc.Connection.Hostname, "-U", username, "-P", password, "-I", "lanplus"}
 	args = append(args, appendArgs...)
 
 	ctx := context.Background()
