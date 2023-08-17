@@ -56,21 +56,21 @@ func (sc *ServerCollector) Collect() error {
 
 	sc.Server.Time = time.Now()
 
+	logger.Printf("server %d start get power", sc.Server.ID)
 	status, err := sc.getPower()
 	if err != nil {
 		_, err := sc.pushToBlacklist()
 		logger.LogIfErr(err)
-		logger.Printf("server #%d push to blacklist", sc.Server.ID)
+		logger.Printf("server %d push to blacklist", sc.Server.ID)
 		errStr := fmt.Sprintf("server#%d get power failed, skipped ", sc.Server.ID)
 		return errors.New(errStr)
 	} else {
 		sc.Server.PowerStatus = status
 	}
+	logger.Printf("server %d get power finished, value: %s", sc.Server.ID, status)
 
-	logger.Printf("server %d get power finished", sc.Server.ID)
-
+	logger.Printf("server %d start get power reading", sc.Server.ID)
 	power, err := sc.getPowerReading()
-	logger.Printf("power %d", power)
 	if err != nil {
 		_, err := sc.pushToBlacklist()
 		logger.LogIfErr(err)
@@ -80,6 +80,7 @@ func (sc *ServerCollector) Collect() error {
 	} else {
 		sc.Server.PowerReading = power
 	}
+	logger.Printf("server %d get power reading finished, value: %d", sc.Server.ID, power)
 
 	logger.Printf("server %d finished", sc.Server.ID)
 	return nil
