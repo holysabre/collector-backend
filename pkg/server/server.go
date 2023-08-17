@@ -100,7 +100,7 @@ func (sc *ServerCollector) Collect() error {
 	if errStr != "" {
 		return errors.New(errStr)
 	}
-
+	logger.Printf("server %d finished", sc.Server.ID)
 	return nil
 }
 

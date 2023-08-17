@@ -47,7 +47,7 @@ func (sc *SystemCollector) Collect() error {
 
 	sc.SystemInfo.Time = time.Now()
 
-	// fmt.Println("collect done \n", sc.SystemInfo)
+	logger.Printf("system %d finished", sc.SystemInfo.ID)
 	return nil
 }
 

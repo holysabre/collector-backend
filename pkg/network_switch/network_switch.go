@@ -74,7 +74,7 @@ func (nsc *NSCollector) Collect() error {
 	logger.Printf("ns %d collect ports oids finished\n", nsc.NetworkSwitch.ID)
 
 	nsc.NetworkSwitch.Time = time.Now()
-
+	logger.Printf("ns %d finished", nsc.NetworkSwitch.ID)
 	return nil
 }
 
