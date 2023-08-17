@@ -263,7 +263,7 @@ func (sc *ServerCollector) cacheCorrectIPMIToolVersion(version string) {
 }
 
 func (sc *ServerCollector) pushToBlacklist() (bool, error) {
-	redisConn := db.NewRedisReadConnection()
+	redisConn := db.NewRedisWriteConnection()
 	client := redisConn.GetClient()
 
 	result := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
@@ -279,14 +279,19 @@ func (sc *ServerCollector) checkInBlacklist() bool {
 	redisConn := db.NewRedisReadConnection()
 	client := redisConn.GetClient()
 
-	isExists, err := client.Exists(context.Background(), sc.getCacheKey()).Result()
+	ctx := context.Background()
+
+	key := sc.getCacheKey()
+	isExists, err := client.Exists(ctx, key).Result()
 	if err != nil {
+		logger.Printf("Unable To Connect Redis, key: %s", key)
 		redisConn.CloseClient(client)
-		logger.Fatal("Unable To Connect Redis")
+		return false
 	}
 	if err == redis.Nil {
+		logger.Printf("Key not found, key: %s", key)
 		redisConn.CloseClient(client)
-		logger.Fatal("Public key not found")
+		return false
 	}
 
 	redisConn.CloseClient(client)
