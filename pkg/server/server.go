@@ -27,7 +27,7 @@ const (
 	BlacklistPrefix               = "server-blacklist:server#"
 	BlacklistBaseEXMintues        = 10
 	BlacklistBaseEXFloatMintues   = 5
-	RetryMaxTimes                 = 2
+	RetryMaxTimes                 = "2"
 	IPMIVersionBaseEXMintues      = 2
 	IPMIVersionBaseEXFloatMintues = 1
 )
@@ -48,6 +48,7 @@ func NewServerCollector(s *model_server.Server) *ServerCollector {
 }
 
 func (sc *ServerCollector) Collect() error {
+	logger.Printf("server %d start collect", sc.Server.ID)
 	if sc.checkInBlacklist() {
 		errStr := fmt.Sprintf("server#%d is in blacklist, skip get power", sc.Server.ID)
 		return errors.New(errStr)
@@ -55,52 +56,31 @@ func (sc *ServerCollector) Collect() error {
 
 	sc.Server.Time = time.Now()
 
-	tryGetPowerTimes := 1
-	errStr := ""
-	for {
-		if tryGetPowerTimes > RetryMaxTimes {
-			_, err := sc.pushToBlacklist()
-			logger.LogIfErrWithMsg(err, fmt.Sprintf("server #%d push to blacklist", sc.Server.ID))
-			errStr = fmt.Sprintf("server#%d try %d times to get power, skipped ", sc.Server.ID, tryGetPowerTimes)
-			break
-		}
-		status, err := sc.getPower()
-		if err != nil {
-			logger.Printf("server#%d get power failed, try times %d, err: %v ", sc.Server.ID, tryGetPowerTimes, err.Error())
-			time.Sleep(1 * time.Second)
-		} else {
-			sc.Server.PowerStatus = status
-			break
-		}
-		tryGetPowerTimes++
-	}
-	if errStr != "" {
+	status, err := sc.getPower()
+	if err != nil {
+		_, err := sc.pushToBlacklist()
+		logger.LogIfErr(err)
+		logger.Printf("server #%d push to blacklist", sc.Server.ID)
+		errStr := fmt.Sprintf("server#%d get power failed, skipped ", sc.Server.ID)
 		return errors.New(errStr)
+	} else {
+		sc.Server.PowerStatus = status
 	}
+
 	logger.Printf("server %d get power finished", sc.Server.ID)
 
-	tryGetPowerReadingtimes := 1
-	for {
-		if tryGetPowerReadingtimes > RetryMaxTimes {
-			_, err := sc.pushToBlacklist()
-			logger.LogIfErrWithMsg(err, fmt.Sprintf("server #%d push to blacklist", sc.Server.ID))
-			errStr = fmt.Sprintf("server#%d try %d times to get power reading, skipped ", sc.Server.ID, tryGetPowerReadingtimes)
-			break
-		}
-		power, err := sc.getPowerReading()
-		logger.Printf("power %d", power)
-		if err != nil {
-			logger.Printf("server#%d get power reading failed, try times %d, err: %v ", sc.Server.ID, tryGetPowerReadingtimes, err.Error())
-			time.Sleep(1 * time.Second)
-		} else {
-			sc.Server.PowerReading = power
-			break
-		}
-		tryGetPowerReadingtimes++
-	}
-	if errStr != "" {
+	power, err := sc.getPowerReading()
+	logger.Printf("power %d", power)
+	if err != nil {
+		_, err := sc.pushToBlacklist()
+		logger.LogIfErr(err)
+		logger.Printf("server #%d push to blacklist", sc.Server.ID)
+		errStr := fmt.Sprintf("server#%d get power reading failed, skipped ", sc.Server.ID)
 		return errors.New(errStr)
+	} else {
+		sc.Server.PowerReading = power
 	}
+
 	logger.Printf("server %d finished", sc.Server.ID)
 	return nil
 }
@@ -255,7 +235,7 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 	username := fmt.Sprintf(`%s`, sc.Connection.Username)
 	password := fmt.Sprintf(`%s`, sc.Connection.Password)
 
-	args := []string{"-H", sc.Connection.Hostname, "-U", username, "-P", password, "-I", "lanplus"}
+	args := []string{"-H", "-R", RetryMaxTimes, sc.Connection.Hostname, "-U", username, "-P", password, "-I", "lanplus"}
 	args = append(args, appendArgs...)
 
 	ctx := context.Background()
@@ -282,17 +262,16 @@ func (sc *ServerCollector) cacheCorrectIPMIToolVersion(version string) {
 }
 
 func (sc *ServerCollector) pushToBlacklist() (bool, error) {
-	return true, nil
-	// redisConn := db.NewRedisReadConnection()
-	// client := redisConn.GetClient()
+	redisConn := db.NewRedisReadConnection()
+	client := redisConn.GetClient()
 
-	// result := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
+	result := client.SetNX(context.Background(), sc.getCacheKey(), 1, sc.getRandomCacheTime(BlacklistBaseEXMintues, BlacklistBaseEXFloatMintues))
 
-	// redisConn.CloseClient(client)
+	redisConn.CloseClient(client)
 
-	// logger.Printf("server#%d push into blacklist", sc.Server.CabinetID)
+	logger.Printf("server#%d push into blacklist", sc.Server.CabinetID)
 
-	// return result.Result()
+	return result.Result()
 }
 
 func (sc *ServerCollector) checkInBlacklist() bool {
