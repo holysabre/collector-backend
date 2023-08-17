@@ -3,12 +3,13 @@ package db
 import (
 	"collector-agent/pkg/logger"
 	"context"
+	"runtime"
 	"sync"
 
 	"github.com/go-redis/redis/v8"
 )
 
-const redisClientCap = 30
+const PoolCapPreCoreNum = 10
 
 var (
 	once   sync.Once
@@ -17,11 +18,14 @@ var (
 
 func GetRedisClient() *redis.Client {
 	once.Do(func() {
+		numCPU := runtime.NumCPU()
+		poolCap := PoolCapPreCoreNum * numCPU
+		logger.Printf("redis pool size: %d", poolCap)
 		options := redis.Options{
 			Network:  "unix",
 			Addr:     "/app/run/redis.sock",
 			DB:       0,
-			PoolSize: redisClientCap,
+			PoolSize: int(poolCap),
 		}
 
 		client = redis.NewClient(&options)
@@ -29,15 +33,6 @@ func GetRedisClient() *redis.Client {
 
 	return client
 }
-
-// func (rrc RedisConnection) GetClient() *redis.Client {
-// 	log.Println(rrc.RedisClient.PoolStats())
-// 	return rrc.RedisClient
-// }
-
-// func (rrc RedisConnection) CloseClient(c *redis.Client) {
-// 	rrc.RedisClient.Close()
-// }
 
 func GetRedisConnection() *redis.Client {
 	client := redis.NewClient(&redis.Options{
