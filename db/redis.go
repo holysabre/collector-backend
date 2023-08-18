@@ -31,6 +31,12 @@ func GetRedisClient() *redis.Client {
 		client = redis.NewClient(&options)
 	})
 
+	// 获取连接池的统计信息
+	stats := client.PoolStats()
+
+	// 打印连接池的统计信息
+	logger.Printf("Redis Pool Stats, TotalConns: %d, IdleConns: %d, StaleConns: %d", stats.TotalConns, stats.IdleConns, stats.StaleConns)
+
 	return client
 }
 
