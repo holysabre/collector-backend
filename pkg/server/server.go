@@ -166,7 +166,7 @@ func (sc *ServerCollector) isOldIPMIToolVersion() bool {
 		version = "old"
 	}
 
-	sc.cacheCorrectIPMIToolVersion(version)
+	sc.cacheCorrectIPMIToolInfo(sc.getIPMIVersionCacheKey(), version)
 
 	logger.Printf("get version from cli %s", version)
 
@@ -179,7 +179,14 @@ func (sc *ServerCollector) getIPMIVersionCacheKey() string {
 
 func (sc *ServerCollector) getOldPowerReading() (int, error) {
 	logger.Println("getOldPowerReading")
+
 	keywords := []string{"Power", "Total_Power", "Sys_Total_Power"}
+	if powerMode := sc.getCorrectPowerMode(); powerMode == "" {
+		keywords = append([]string{powerMode}, keywords...)
+	}
+
+	log.Println(keywords)
+
 	var out []byte
 	var err error
 	for _, keyword := range keywords {
@@ -187,6 +194,9 @@ func (sc *ServerCollector) getOldPowerReading() (int, error) {
 		out, err = sc.run(sc.IPMIBinary, args)
 		// logger.Println(string(out))
 		if err == nil {
+			if keyword != "" {
+				sc.cacheCorrectIPMIToolInfo(sc.getIPMIPowerModeCacheKey(), keyword)
+			}
 			break
 		}
 		logger.Println(err.Error())
@@ -198,12 +208,13 @@ func (sc *ServerCollector) getOldPowerReading() (int, error) {
 	if len(matches) > 1 {
 		power, _ := strconv.Atoi(matches[1])
 		logger.Printf("server #%d power reading: %d ", sc.Server.ID, power)
-		sc.cacheCorrectIPMIToolVersion("old")
+		sc.cacheCorrectIPMIToolInfo(sc.getIPMIVersionCacheKey(), "old")
 		return power, nil
 	}
 
 	return 0, errors.New("cannot get old power reading")
 }
+
 func (sc *ServerCollector) getNewPowerReading() (int, error) {
 	logger.Println("getNewPowerReading")
 	args := []string{"dcmi", "power", "reading"}
@@ -221,7 +232,7 @@ func (sc *ServerCollector) getNewPowerReading() (int, error) {
 	if len(matches) > 1 {
 		power, _ := strconv.Atoi(matches[1])
 		logger.Printf("server #%d power reading: %d ", sc.Server.ID, power)
-		sc.cacheCorrectIPMIToolVersion("new")
+		sc.cacheCorrectIPMIToolInfo(sc.getIPMIVersionCacheKey(), "new")
 		return power, nil
 	}
 
@@ -250,9 +261,9 @@ func (sc *ServerCollector) run(command string, appendArgs []string) ([]byte, err
 	return out, nil
 }
 
-func (sc *ServerCollector) cacheCorrectIPMIToolVersion(version string) {
+func (sc *ServerCollector) cacheCorrectIPMIToolInfo(key string, value string) {
 	redisClient := db.GetRedisClient()
-	result := redisClient.SetNX(context.Background(), sc.getIPMIVersionCacheKey(), version, sc.getRandomCacheTime(IPMIVersionBaseEXMintues, IPMIVersionBaseEXFloatMintues))
+	result := redisClient.SetNX(context.Background(), key, value, sc.getRandomCacheTime(IPMIVersionBaseEXMintues, IPMIVersionBaseEXFloatMintues))
 	log.Println(result.Result())
 }
 
@@ -300,4 +311,24 @@ func (sc *ServerCollector) getRandomCacheTime(baseMinutes int, floatMiuntes int)
 	// logger.Printf("random Duration: %v", randomNumber)
 
 	return randomDuration
+}
+
+func (sc *ServerCollector) getIPMIPowerModeCacheKey() string {
+	return fmt.Sprintf("ipmi_server:%s:power_mode", sc.Connection.Hostname)
+}
+
+func (sc *ServerCollector) getCorrectPowerMode() (powerMode string) {
+	redisReadClient := db.GetRedisClient()
+	var err error
+	cacheKey := sc.getIPMIPowerModeCacheKey()
+	powerMode, err = redisReadClient.Get(context.Background(), cacheKey).Result()
+	if err == nil {
+		if err != redis.Nil {
+			logger.Printf("get power mode from redis %s", powerMode)
+			return
+		}
+	}
+	logger.Printf("No Data From Redis, key: %s", cacheKey)
+
+	return
 }
