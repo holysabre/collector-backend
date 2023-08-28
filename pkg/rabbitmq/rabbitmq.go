@@ -98,17 +98,17 @@ func NewCtrl(poolName string, returnChan *chan model_msg.Msg) *Controller {
 	}
 }
 
-func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connection, notify chan *amqp.Error) error {
+func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connection, notify chan *amqp.Error, autoDelete bool) error {
 	ch, err := amqpConn.Channel()
 	logger.ExitIfErr(err, "Failed to open a channel")
 
 	q, err := ch.QueueDeclare(
-		name,  // 队列名称
-		false, // 是否持久化
-		false, // 是否自动删除
-		false, // 是否具有排他性
-		false, // 是否阻塞等待
-		nil,   // 额外的属性
+		name,       // 队列名称
+		false,      // 是否持久化
+		autoDelete, // 是否自动删除
+		false,      // 是否具有排他性
+		false,      // 是否阻塞等待
+		nil,        // 额外的属性
 	)
 	logger.ExitIfErr(err, "Failed to declare a queue")
 	logger.Printf("%s channel & queue declared", name)
