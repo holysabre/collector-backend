@@ -99,7 +99,7 @@ func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connect
 	q, err := ch.QueueDeclare(
 		name,  // 队列名称
 		false, // 是否持久化
-		true,  // 是否自动删除
+		false, // 是否自动删除
 		false, // 是否具有排他性
 		false, // 是否阻塞等待
 		nil,   // 额外的属性
@@ -155,6 +155,7 @@ func (ctrl *Controller) ListenQueue() {
 		// }
 		ctrl.handleCollect(msg)
 	}
+	logger.Fatal("exit listen queue")
 }
 
 func (ctrl *Controller) handleCollect(msg model_msg.Msg) {
