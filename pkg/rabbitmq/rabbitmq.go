@@ -32,6 +32,7 @@ const (
 type Connection struct {
 	Config Config
 	Conn   *amqp.Connection
+	Notify chan *amqp.Error
 }
 type Config struct {
 	Url             string
@@ -44,7 +45,9 @@ func NewConnection(config Config) (Connection, error) {
 	conn := Connection{}
 	amqpConn, err := amqp.Dial(config.Url)
 	logger.ExitIfErr(err, "Failed to connect to RabbitMQ")
+	notify := amqpConn.NotifyClose(make(chan *amqp.Error)) //error channel
 	conn.Conn = amqpConn
+	conn.Notify = notify
 	return conn, nil
 }
 
@@ -64,13 +67,16 @@ func NewConnectionWithTLS(config Config) (Connection, error) {
 	conn := Connection{}
 	amqpConn, err := amqp.DialTLS(config.Url, tlsConfig)
 	logger.ExitIfErr(err, "Failed to connect to RabbitMQ")
+	notify := amqpConn.NotifyClose(make(chan *amqp.Error)) //error channel
 	conn.Conn = amqpConn
+	conn.Notify = notify
 	return conn, nil
 }
 
 type Controller struct {
 	Channel      *amqp.Channel
 	Queue        amqp.Queue
+	Notify       chan *amqp.Error
 	Pool         gopool.Pool
 	ServerPool   gopool.Pool
 	NSPool       gopool.Pool
@@ -92,7 +98,7 @@ func NewCtrl(poolName string, returnChan *chan model_msg.Msg) *Controller {
 	}
 }
 
-func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connection) error {
+func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connection, notify chan *amqp.Error) error {
 	ch, err := amqpConn.Channel()
 	logger.ExitIfErr(err, "Failed to open a channel")
 
@@ -109,6 +115,7 @@ func (ctrl *Controller) SetupChannelAndQueue(name string, amqpConn *amqp.Connect
 
 	ctrl.Channel = ch
 	ctrl.Queue = q
+	ctrl.Notify = notify
 
 	return nil
 }
@@ -127,35 +134,41 @@ func (ctrl *Controller) ListenQueue() {
 	)
 	logger.ExitIfErr(err, "Failed to register a consumer")
 
-	for d := range msgs {
-		var msg model_msg.Msg
-		splited := bytes.Split(d.Body, []byte{'|'})
-		if len(splited) < 2 {
-			continue
+	for { //receive loop
+		select { //check connection
+		case err := <-ctrl.Notify:
+			//work with error
+			logger.Println(err.Error())
+			break //reconnect
+		case d := <-msgs:
+			var msg model_msg.Msg
+			splited := bytes.Split(d.Body, []byte{'|'})
+			if len(splited) < 2 {
+				continue
+			}
+			decodedBytes, err := base64.StdEncoding.DecodeString(string(splited[1]))
+			if err != nil {
+				logger.Printf("Unable to decode base64 data: %v", err.Error())
+				continue
+			}
+			err = json.Unmarshal(decodedBytes, &msg)
+			if err != nil {
+				logger.Printf("Unable to parse json data: %v", err.Error())
+				continue
+			}
+			// if msg.TryTimes >= max_try_times {
+			// 	logger.Printf("%s try timeout", msg.Type)
+			// 	continue
+			// }
+			// msg.TryTimes++
+			// if msg.Type == "" {
+			// 	if err := ctrl.publishMsg(ctrl.RetryChannel, ctrl.RetryQueue, msg); err != nil {
+			// 		continue
+			// 	}
+			// }
+			ctrl.handleCollect(msg)
 		}
-		decodedBytes, err := base64.StdEncoding.DecodeString(string(splited[1]))
-		if err != nil {
-			logger.Printf("Unable to decode base64 data: %v", err.Error())
-			continue
-		}
-		err = json.Unmarshal(decodedBytes, &msg)
-		if err != nil {
-			logger.Printf("Unable to parse json data: %v", err.Error())
-			continue
-		}
-		// if msg.TryTimes >= max_try_times {
-		// 	logger.Printf("%s try timeout", msg.Type)
-		// 	continue
-		// }
-		// msg.TryTimes++
-		// if msg.Type == "" {
-		// 	if err := ctrl.publishMsg(ctrl.RetryChannel, ctrl.RetryQueue, msg); err != nil {
-		// 		continue
-		// 	}
-		// }
-		ctrl.handleCollect(msg)
 	}
-	logger.Fatal("exit listen queue")
 }
 
 func (ctrl *Controller) handleCollect(msg model_msg.Msg) {

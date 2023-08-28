@@ -58,19 +58,19 @@ func run() {
 	mainName := "collector-main-" + datacenterID
 	mainCtrl := rabbitmq.NewCtrl(mainName, &returnChan)
 	mainCtrl.SlaveID = slaveID
-	mainCtrl.SetupChannelAndQueue(mainName, conn.Conn)
+	mainCtrl.SetupChannelAndQueue(mainName, conn.Conn, conn.Notify)
 	defer mainCtrl.Channel.Close()
 
 	retryName := "collector-retry-" + datacenterID
 	retryCtrl := rabbitmq.NewCtrl(retryName, &returnChan)
 	retryCtrl.SlaveID = slaveID
-	retryCtrl.SetupChannelAndQueue(retryName, conn.Conn)
+	retryCtrl.SetupChannelAndQueue(retryName, conn.Conn, conn.Notify)
 	defer retryCtrl.Channel.Close()
 
 	returnName := "collector-return"
 	returnCtrl := rabbitmq.NewCtrl(returnName, &returnChan)
 	retryCtrl.SlaveID = slaveID
-	returnCtrl.SetupChannelAndQueue(returnName, conn.Conn)
+	returnCtrl.SetupChannelAndQueue(returnName, conn.Conn, conn.Notify)
 	defer returnCtrl.Channel.Close()
 
 	mainCtrl.RetryChannel = retryCtrl.Channel
