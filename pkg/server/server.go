@@ -181,7 +181,7 @@ func (sc *ServerCollector) getOldPowerReading() (int, error) {
 	logger.Println("getOldPowerReading")
 
 	keywords := []string{"Power", "Total_Power", "Sys_Total_Power"}
-	if powerMode := sc.getCorrectPowerMode(); powerMode == "" {
+	if powerMode := sc.getCorrectPowerMode(); powerMode != "" {
 		keywords = append([]string{powerMode}, keywords...)
 	}
 
